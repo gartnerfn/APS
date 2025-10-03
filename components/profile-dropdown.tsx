@@ -28,8 +28,8 @@ export function ProfileDropdown() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-full">
+      <DropdownMenuTrigger >
+        <Button  variant="ghost" size="icon" className="rounded-full">
           <User className="h-5 w-5" />
         </Button>
       </DropdownMenuTrigger>
