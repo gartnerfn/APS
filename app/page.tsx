@@ -3,6 +3,7 @@ import { CalendarSection } from "@/components/calendar-section"
 import { DriversSection } from "@/components/drivers-section"
 import { PenaltiesSection } from "@/components/penalties-section"
 import { StandingsSection } from "@/components/standings-section"
+import MultimediaSection from "@/components/multimedia-section"
 
 export default function Home() {
   return (
@@ -13,6 +14,7 @@ export default function Home() {
         <DriversSection />
         <StandingsSection />
         <PenaltiesSection />
+        <MultimediaSection />
       </main>
     </div>
   )
