@@ -3,7 +3,7 @@ import { Trophy, TrendingUp, TrendingDown, Minus } from "lucide-react"
 
 const standings = [
   { position: 1, driver: "Max Verstappen", team: "Red Bull Racing", points: 575, change: 0, country: "🇳🇱" },
-  { position: 2, driver: "Sergio Pérez", team: "Red Bull Racing", points: 285, change: 0, country: "🇲🇽" },
+  { position: 2, driver: "Yuki Tsunoda", team: "Red Bull Racing", points: 285, change: 0, country: "🇲🇽" },
   { position: 3, driver: "Lewis Hamilton", team: "Mercedes", points: 234, change: 1, country: "🇬🇧" },
   { position: 4, driver: "Fernando Alonso", team: "Aston Martin", points: 206, change: -1, country: "🇪🇸" },
   { position: 5, driver: "Charles Leclerc", team: "Ferrari", points: 206, change: 0, country: "🇲🇨" },

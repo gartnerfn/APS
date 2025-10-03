@@ -2,50 +2,29 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Calendar, MapPin } from "lucide-react"
 
-const races = [
-  {
-    date: "MAR 16",
-    country: "BAHRÉIN",
-    circuit: "Circuito Internacional de Bahréin",
-    status: "COMPLETADO",
-    image: "/bahrain-f1-circuit-night-race.jpg",
-  },
-  {
-    date: "MAR 23",
-    country: "ARABIA SAUDITA",
-    circuit: "Circuito Callejero de Jeddah",
-    status: "COMPLETADO",
-    image: "/jeddah-f1-street-circuit-night.jpg",
-  },
-  {
-    date: "ABR 6",
-    country: "AUSTRALIA",
-    circuit: "Circuito de Albert Park",
+const races = [{
+    date: "OCT 3–5",
+    country: "SINGAPUR",
+    circuit: "Marina Bay Street Circuit",
     status: "PRÓXIMO",
-    image: "/melbourne-f1-albert-park-circuit.jpg",
+    image: "/singapur.jpg",
   },
   {
-    date: "ABR 20",
-    country: "JAPÓN",
-    circuit: "Circuito de Suzuka",
+    date: "OCT 17–19",
+    country: "ESTADOS UNIDOS",
+    circuit: "Circuito de las Américas",
     status: "PRÓXIMO",
-    image: "/suzuka-f1-circuit-japan.jpg",
+    image: "/estados-unidos.jpg",
   },
   {
-    date: "MAY 4",
-    country: "CHINA",
-    circuit: "Circuito Internacional de Shanghái",
+    date: "OCT 24–26",
+    country: "MÉXICO",
+    circuit: "Autódromo Hermanos Rodríguez",
     status: "PRÓXIMO",
-    image: "/shanghai-f1-circuit-china.jpg",
-  },
-  {
-    date: "MAY 18",
-    country: "MIAMI",
-    circuit: "Autódromo Internacional de Miami",
-    status: "PRÓXIMO",
-    image: "/miami-f1-circuit-usa.jpg",
-  },
-]
+    image: "/mexico.jpg",
+  }
+];
+
 
 export function CalendarSection() {
   return (
