@@ -77,14 +77,13 @@ export function PenaltiesSection() {
                   <h3 className="font-bold text-foreground">{penalty.race}</h3>
                 </div>
                 <Badge
-                  variant={penalty.severity === "high" ? "destructive" : "secondary"}
-                  className={
-                    penalty.severity === "high"
-                      ? "bg-destructive text-destructive-foreground"
-                      : penalty.severity === "medium"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary text-secondary-foreground"
-                  }
+                    className={
+    penalty.severity === "high"
+      ? "!bg-red-600 !text-white px-2 py-0.5 rounded-md"
+      : penalty.severity === "medium"
+        ? "!bg-yellow-500 !text-black px-2 py-0.5 rounded-md"
+        : "!bg-gray-200 !text-gray-800 px-2 py-0.5 rounded-md"
+  }
                 >
                   {penalty.penalty}
                 </Badge>
