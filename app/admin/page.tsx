@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { ArrowLeft, Trash2, Edit3 } from "lucide-react"
+import { Header } from "@/components/header"
 
 export default function AdminPage() {
   const { user, getAllUsers, updateUser, deleteUser } = useAuth()
@@ -60,6 +61,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Header/>
       <div className="container mx-auto px-4 py-8">
         <Link
           href="/"

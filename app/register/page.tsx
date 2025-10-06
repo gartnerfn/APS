@@ -84,9 +84,9 @@ export default function RegisterPage() {
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <h3 className="text-sm font-semibold mb-2">Detección automática de roles:</h3>
             <div className="text-xs space-y-1 text-muted-foreground">
-              <div>📧 <strong>admin@f1</strong> → Administrador</div>
-              <div>🏎️ <strong>escuderia@f1</strong> → Escudería</div>
-              <div>👤 Otros emails → Usuario (por defecto)</div>
+              <div><strong>admin@</strong> → Administrador</div>
+              <div><strong>escuderia@</strong> → Escudería</div>
+              <div>Otros emails → Usuario (por defecto)</div>
               <div className="mt-2"><em>Los roles se asignan automáticamente según el email</em></div>
             </div>
           </div>

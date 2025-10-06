@@ -14,15 +14,16 @@ export function Header() {
   const isMobile = useIsMobile()
 
   const navLinks = [
-    { href: "#calendario", label: "CALENDARIO" },
-    { href: "#pilotos", label: "PILOTOS" },
-    { href: "#puntajes", label: "PUNTAJES" },
-    { href: "#sanciones", label: "SANCIONES" },
+    { href: "/#calendario", label: "CALENDARIO" },
+    { href: "/#pilotos", label: "PILOTOS" },
+    { href: "/#puntajes", label: "PUNTAJES" },
+    { href: "/#sanciones", label: "SANCIONES" },
+    { href: "/#noticias", label: "NOTICIAS" },
   ]
 
   return (
     <header className="sticky top-0 border-b border-border bg-card z-50">
-      <div className="container grid grid-cols-2 md:grid-cols-[1fr_auto_1fr] mx-auto px-4 py-2">
+      <div className=" grid grid-cols-2 md:grid-cols-[1fr_auto_1fr] mx-auto px-4 py-2">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <Image src="/f1.png" alt="F1 Logo" width={48} height={48} />
@@ -87,18 +88,13 @@ export function Header() {
           ) : user ? (
             <ProfileDropdown />
           ) : (
-            <>
+            <div className="flex gap-2 place-self-end">
               <Link href="/login">
                 <Button variant="ghost" className="font-semibold">
                   Iniciar sesión
                 </Button>
               </Link>
-              <Link href="/register">
-                <Button className="font-semibold bg-primary hidden lg:block hover:bg-primary/90">
-                  Registrarse
-                </Button>
-              </Link>
-            </>
+            </div>
           )}
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { User, Settings, LogOut, Crown } from "lucide-react"
+import { User, Settings, LogOut, ChartArea, BookKey } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 export function ProfileDropdown() {
   const { user, logout } = useAuth()
@@ -33,7 +34,7 @@ export function ProfileDropdown() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger >
-        <Button  variant="ghost" size="icon" className="rounded-full">
+        <Button variant="ghost" size="icon" className="rounded-full">
           <User className="h-5 w-5" />
         </Button>
       </DropdownMenuTrigger>
@@ -45,16 +46,26 @@ export function ProfileDropdown() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-          {user?.user_role === "administrador" && (
-            <DropdownMenuItem onClick={handleAdmin}>
-              <Crown className="mr-2 h-4 w-4" />
-              <span>Panel de administración</span>
-            </DropdownMenuItem>
-          )}
         <DropdownMenuItem onClick={handleProfile}>
           <Settings className="mr-2 h-4 w-4" />
           <span>Editar perfil</span>
         </DropdownMenuItem>
+        {user?.user_role === "administrador" && (
+          <Link href="/admin">
+            <DropdownMenuItem>
+              <BookKey className="mr-2 h-4 w-4" />
+              <span>Administrar usuarios</span>
+            </DropdownMenuItem>
+          </Link>
+        )}
+        {user?.user_role === "escuderia" && (
+          <Link href="/dashboard">
+            <DropdownMenuItem>
+              <ChartArea className="mr-2 h-4 w-4" />
+              <span>Estadisticas</span>
+            </DropdownMenuItem>
+          </Link>
+        )}
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>Cerrar sesión</span>

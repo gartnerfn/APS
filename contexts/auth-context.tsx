@@ -31,7 +31,7 @@ const DEFAULT_USERS: User[] = [
   {
     id: "1",
     name: "Usuario Demo",
-    email: "usuario@f1.com",
+    email: "usuario@f1",
     user_role: "usuario" as const,
   },
   {

@@ -15,7 +15,7 @@ import { Flag, Trash2, ArrowLeft, Crown, Users, User as UserIcon } from "lucide-
 import Link from "next/link"
 
 export default function ProfilePage() {
-  const { user, updateProfile, deleteAccount, logout } = useAuth()
+  const { user, updateProfile, deleteAccount } = useAuth()
   const router = useRouter()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
