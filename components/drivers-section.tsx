@@ -1,7 +1,10 @@
+'use client'
+
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useState } from "react";
 
 const drivers = [
   {
@@ -151,28 +154,57 @@ const drivers = [
 ];
 
 export function DriversSection() {
+  const [startIndex, setStartIndex] = useState(0)
+  const visibleCount = 6
+
+  const handlePrev = () => {
+    setStartIndex((prev) => Math.max(prev - visibleCount, 0))
+  }
+
+  const handleNext = () => {
+    setStartIndex((prev) => Math.min(prev + visibleCount, drivers.length - visibleCount))
+  }
+
+  const visibleDrivers = drivers.slice(startIndex, startIndex + visibleCount)
+
   return (
     <section id="pilotos" className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-5xl font-bold tracking-tighter text-foreground">PILOTOS 2025</h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="icon">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handlePrev}
+            disabled={startIndex === 0}
+            className="disabled:opacity-50"
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleNext}
+            disabled={startIndex + visibleCount >= drivers.length}
+            className="disabled:opacity-50"
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {drivers.map((driver, index) => (
+        {visibleDrivers.map((driver, index) => (
           <Card
             key={index}
             className="overflow-hidden bg-card border-border group hover:border-primary transition-all hover:scale-105"
           >
             <div className="relative h-64 overflow-hidden bg-secondary">
-              <img src={driver.image || "/placeholder.svg"} alt={driver.name} className="w-full h-full object-cover" />
+              <img
+                src={driver.image || "/placeholder.svg"}
+                alt={driver.name}
+                className="w-full h-full object-cover"
+              />
               <div className="absolute top-3 left-3">
                 <Badge variant="secondary" className="text-xs font-bold bg-secondary/90 backdrop-blur-sm">
                   {driver.team}
@@ -182,7 +214,9 @@ export function DriversSection() {
             </div>
             <div className="p-4 space-y-2">
               <div className="text-4xl font-bold text-muted-foreground">#{driver.number}</div>
-              <h3 className="text-lg font-bold tracking-tight text-foreground leading-tight">{driver.name}</h3>
+              <h3 className="text-lg font-bold tracking-tight text-foreground leading-tight">
+                {driver.name}
+              </h3>
               <div className="text-sm text-muted-foreground">{driver.points} puntos</div>
             </div>
           </Card>
@@ -190,4 +224,5 @@ export function DriversSection() {
       </div>
     </section>
   )
+
 }
