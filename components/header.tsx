@@ -22,7 +22,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 border-b border-border bg-card z-50">
-      <div className="container flex items-center justify-between mx-auto px-4 py-2">
+      <div className="container grid grid-cols-2 md:grid-cols-[1fr_auto_1fr] mx-auto px-4 py-2">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <Image src="/f1.png" alt="F1 Logo" width={48} height={48} />
@@ -44,7 +44,7 @@ export function Header() {
         )}
 
         {/* Usuario / Botones */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 place-self-end">
           {isMobile ? (
             // Móvil: Sidebar con menú
             <Sheet>
@@ -94,7 +94,7 @@ export function Header() {
                 </Button>
               </Link>
               <Link href="/register">
-                <Button className="font-semibold bg-primary hover:bg-primary/90">
+                <Button className="font-semibold bg-primary hidden lg:block hover:bg-primary/90">
                   Registrarse
                 </Button>
               </Link>

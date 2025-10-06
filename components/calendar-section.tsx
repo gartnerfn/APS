@@ -29,8 +29,8 @@ const races = [{
 export function CalendarSection() {
   return (
     <section id="calendario" className="space-y-6">
-      <div className="flex gap-3 items-center justify-between">
-        <h2 className="text-3xl sm:text-5xl font-bold tracking-tighter text-foreground">CALENDARIO 2025</h2>
+      <div className="flex flex-col sm:flex-row gap-3 items-left sm:items-center justify-between">
+        <h2 className="text-5xl font-bold tracking-tighter text-foreground">CALENDARIO 2025</h2>
         <Button variant="outline" className="gap-2 bg-transparent">
           <Calendar className="h-4 w-4" />
           Ver Calendario Completo
