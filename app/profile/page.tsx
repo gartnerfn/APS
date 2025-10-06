@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Flag, Trash2, ArrowLeft } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Flag, Trash2, ArrowLeft, Crown, Users, User as UserIcon } from "lucide-react"
 import Link from "next/link"
 
 export default function ProfilePage() {
@@ -29,15 +30,25 @@ export default function ProfilePage() {
     }
   }, [user, router])
 
-  const handleUpdate = (e: React.FormEvent) => {
+  const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
-    updateProfile(name, email)
-    alert("Perfil actualizado correctamente")
+    try {
+      await updateProfile(name, email)
+      alert("Perfil actualizado correctamente")
+    } catch (error) {
+      console.error("Error actualizando perfil:", error)
+      alert("Error al actualizar el perfil")
+    }
   }
 
-  const handleDelete = () => {
-    deleteAccount()
-    router.push("/")
+  const handleDelete = async () => {
+    try {
+      await deleteAccount()
+      router.push("/")
+    } catch (error) {
+      console.error("Error eliminando cuenta:", error)
+      alert("Error al eliminar la cuenta")
+    }
   }
 
   if (!user) return null
@@ -57,6 +68,28 @@ export default function ProfilePage() {
           <div className="flex items-center gap-3">
             <Flag className="h-8 w-8 text-primary" />
             <h1 className="text-3xl font-bold">Mi Perfil</h1>
+          </div>
+          
+          {/* Etiqueta de rol */}
+          <div className="flex items-center gap-2">
+            {user.user_role === "administrador" && (
+              <Badge variant="outline" className="flex items-center gap-2">
+                <Crown className="h-4 w-4" />
+                Administrador
+              </Badge>
+            )}
+            {user.user_role === "escuderia" && (
+              <Badge variant="secondary" className="flex items-center gap-2 bg-blue-100 text-blue-800 border-blue-200">
+                <Users className="h-4 w-4" />
+                Escudería
+              </Badge>
+            )}
+            {user.user_role === "usuario" && (
+              <Badge variant="outline" className="flex items-center gap-2">
+                <UserIcon className="h-4 w-4" />
+                Usuario
+              </Badge>
+            )}
           </div>
 
           <Card>

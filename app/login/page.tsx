@@ -18,10 +18,15 @@ export default function LoginPage() {
   const { login } = useAuth()
   const router = useRouter()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    login(email, password)
-    router.push("/")
+    try {
+      await login(email, password)
+      router.push("/")
+    } catch (error) {
+      // El error ya se muestra en el alert del contexto
+      console.error("Error en login:", error)
+    }
   }
 
   return (
@@ -62,6 +67,18 @@ export default function LoginPage() {
               Iniciar sesión
             </Button>
           </form>
+          
+          {/* Información de cuentas de ejemplo */}
+          <div className="mt-6 p-4 bg-muted rounded-lg">
+            <h3 className="text-sm font-semibold mb-2">Cuentas de ejemplo:</h3>
+            <div className="text-xs space-y-1 text-muted-foreground">
+              <div><strong>admin@f1</strong> - Administrador</div>
+              <div><strong>escuderia@f1</strong> - Escudería</div>
+              <div><strong>usuario@f1.com</strong> - Usuario</div>
+              <div className="mt-2"><em>Contraseña para todas: 123456</em></div>
+            </div>
+          </div>
+
           <div className="mt-4 text-center text-sm">
             ¿No tienes cuenta?{" "}
             <Link href="/register" className="text-primary hover:underline">
