@@ -22,6 +22,7 @@ interface AuthContextType {
   getAllUsers: () => User[]
   updateUser: (userId: string, name: string, userRole: string) => void
   deleteUser: (userId: string) => void
+  createUser: (name: string, email: string, userRole: "usuario" | "escuderia" | "administrador") => boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -231,6 +232,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("f1_users", JSON.stringify(updatedUsers))
   }
 
+  const createUser = (name: string, email: string, userRole: "usuario" | "escuderia" | "administrador"): boolean => {
+    const storedUsers = localStorage.getItem("f1_users")
+    const allUsers = storedUsers ? JSON.parse(storedUsers) : DEFAULT_USERS
+
+    // Verificar si el email ya existe
+    const existingUser = allUsers.find((u: User) => u.email === email)
+    if (existingUser) {
+      return false // Email ya existe
+    }
+
+    // Crear nuevo usuario
+    const newUser: User = {
+      id: Date.now().toString(),
+      name,
+      email,
+      user_role: userRole,
+    }
+
+    const updatedUsers = [...allUsers, newUser]
+    localStorage.setItem("f1_users", JSON.stringify(updatedUsers))
+    
+    return true // Usuario creado exitosamente
+  }
+
   const isAdmin = user?.user_role === "administrador"
   const isTeam = user?.user_role === "escuderia"
 
@@ -249,6 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         getAllUsers,
         updateUser,
         deleteUser,
+        createUser,
       }}
     >
       {children}
