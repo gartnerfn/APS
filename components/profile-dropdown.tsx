@@ -1,6 +1,6 @@
 "use client"
 
-import { User, Settings, LogOut } from "lucide-react"
+import { User, Settings, LogOut, Crown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -26,6 +26,10 @@ export function ProfileDropdown() {
     router.push("/profile")
   }
 
+  const handleAdmin = () => {
+    router.push("/admin")
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger >
@@ -33,7 +37,7 @@ export function ProfileDropdown() {
           <User className="h-5 w-5" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium">{user?.name}</p>
@@ -41,6 +45,12 @@ export function ProfileDropdown() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+          {user?.user_role === "administrador" && (
+            <DropdownMenuItem onClick={handleAdmin}>
+              <Crown className="mr-2 h-4 w-4" />
+              <span>Panel de administración</span>
+            </DropdownMenuItem>
+          )}
         <DropdownMenuItem onClick={handleProfile}>
           <Settings className="mr-2 h-4 w-4" />
           <span>Editar perfil</span>
