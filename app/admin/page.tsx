@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { Header } from "@/components/header"
+import { Badge } from "@/components/ui/badge"
+import { toast } from "@/hooks/use-toast"
 import { ArrowLeft, Trash2, Edit3, Plus, UserPlus, Upload, FileText, Users, Trophy, Database } from "lucide-react"
 
 export default function AdminPage() {
@@ -82,6 +84,26 @@ export default function AdminPage() {
   // Estados para fechas
   const [teamDate, setTeamDate] = useState("")
 
+  // Reclamos FIA
+  type ClaimStatus = "pendiente" | "en revision" | "aceptado" | "rechazado"
+  interface FiaClaim {
+    id: string
+    teamId: string
+    teamName: string
+    type: string
+    reference?: string
+    event?: string
+    driver?: string
+    description: string
+    evidence?: string
+    status: ClaimStatus
+    createdAt: string
+    updatedAt: string
+  }
+  const CLAIMS_KEY = "f1_fia_claims"
+  const [claims, setClaims] = useState<FiaClaim[]>([])
+  const [showOnlyPending, setShowOnlyPending] = useState(true)
+
   useEffect(() => {
     if (!user) {
       router.push("/login")
@@ -124,6 +146,45 @@ export default function AdminPage() {
     }
     
     setLastUpdate(updates)
+
+    // Cargar reclamos
+    const storedClaims = localStorage.getItem(CLAIMS_KEY)
+    if (storedClaims) {
+      try {
+        const parsed: FiaClaim[] = JSON.parse(storedClaims)
+        // Migración: convertir 'revisado' -> 'aceptado'
+        const hasRevisado = parsed.some(c => (c as any).status === "revisado")
+        const migrated: FiaClaim[] = parsed.map((c) => {
+          const status = (c.status === ("revisado" as any) ? "aceptado" : c.status) as ClaimStatus
+          return { ...c, status }
+        })
+        if (hasRevisado) {
+          localStorage.setItem(CLAIMS_KEY, JSON.stringify(migrated))
+          try { window.dispatchEvent(new Event("f1-fia-claims-updated")) } catch {}
+        }
+        setClaims(migrated.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1)))
+      } catch {}
+    }
+
+    // Notificación en tiempo real de nuevos reclamos
+  const baseList: FiaClaim[] = storedClaims ? JSON.parse(storedClaims) : []
+  const prevIds = new Set(baseList.map(c => c.id))
+    const onClaimsUpdated = () => {
+      const s = localStorage.getItem(CLAIMS_KEY)
+      if (!s) return
+      try {
+        const p: FiaClaim[] = JSON.parse(s)
+        setClaims(p.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1)))
+        const newOnes = p.filter(c => !prevIds.has(c.id))
+        if (newOnes.length > 0) {
+          const newest = newOnes[0]
+          toast({ title: "Nuevo reclamo", description: `${newest.teamName}: ${newest.type.replace(/_/g, " ")}` })
+          newOnes.forEach(n => prevIds.add(n.id))
+        }
+      } catch {}
+    }
+    window.addEventListener("f1-fia-claims-updated", onClaimsUpdated)
+    return () => window.removeEventListener("f1-fia-claims-updated", onClaimsUpdated)
   }, [user])
 
   const startEdit = (u: any) => {
@@ -456,6 +517,19 @@ export default function AdminPage() {
     }
   }
 
+  // Acciones sobre reclamos
+  const updateClaimStatus = (id: string, status: ClaimStatus) => {
+    const stored = localStorage.getItem(CLAIMS_KEY)
+    const all: FiaClaim[] = stored ? JSON.parse(stored) : []
+    const now = new Date().toISOString()
+    const updated = all.map(c => (c.id === id ? { ...c, status, updatedAt: now } : c))
+    localStorage.setItem(CLAIMS_KEY, JSON.stringify(updated))
+    setClaims(updated.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1)))
+    try { window.dispatchEvent(new Event("f1-fia-claims-updated")) } catch {}
+  }
+
+  const pendingCount = claims.filter(c => c.status === "pendiente").length
+
   if (!user) return null
 
   return (
@@ -473,6 +547,9 @@ export default function AdminPage() {
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold">Panel de administración</h1>
+            {pendingCount > 0 && (
+              <Badge className="ml-2 bg-blue-600 text-white">{pendingCount} reclamo(s) pendiente(s)</Badge>
+            )}
           </div>
 
           <Card>
@@ -575,6 +652,63 @@ export default function AdminPage() {
           </Card>
 
           {/* Sección de gestión manual de información */}
+          {/* Gestión de Reclamos */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Reclamos de Escuderías
+              </CardTitle>
+              <div className="flex items-center gap-3">
+                <label className="text-sm flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={showOnlyPending}
+                    onChange={(e) => setShowOnlyPending(e.target.checked)}
+                  />
+                  Mostrar solo pendientes
+                </label>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {claims.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No hay reclamos.</p>
+              ) : (
+                <div className="space-y-3 max-h-72 overflow-y-auto">
+                  {claims
+                    .filter(c => (showOnlyPending ? c.status === "pendiente" : true))
+                    .map((c) => (
+                    <div key={c.id} className="p-3 border rounded-md space-y-2">
+                      <div className="flex flex-wrap items-center gap-2 justify-between">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge className="text-xs">#{c.id}</Badge>
+                          <Badge className="text-xs">{c.teamName}</Badge>
+                          <span className="text-xs text-muted-foreground">{new Date(c.createdAt).toLocaleString()}</span>
+                        </div>
+                        <Badge className="text-xs">
+                          {c.status}
+                        </Badge>
+                      </div>
+                      <div className="text-sm"><span className="font-medium">Tipo:</span> {c.type.replace(/_/g, " ")}</div>
+                      {c.reference && <div className="text-xs text-muted-foreground">Ref: {c.reference}</div>}
+                      <div className="text-sm whitespace-pre-wrap">{c.description}</div>
+                      <div className="grid md:grid-cols-3 gap-2 text-xs text-muted-foreground">
+                        {c.event && <div>Evento: {c.event}</div>}
+                        {c.driver && <div>Piloto: {c.driver}</div>}
+                        {c.evidence && <div className="truncate" title={c.evidence}>Evidencia: {c.evidence}</div>}
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <Button size="sm" variant="secondary" onClick={() => updateClaimStatus(c.id, "en revision")}>En revisión</Button>
+                        <Button size="sm" onClick={() => updateClaimStatus(c.id, "aceptado")}>Aceptar</Button>
+                        <Button size="sm" variant="destructive" onClick={() => updateClaimStatus(c.id, "rechazado")}>Rechazar</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Gestión de Eventos */}
             <Card>

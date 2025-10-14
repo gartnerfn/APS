@@ -47,6 +47,12 @@ const DEFAULT_USERS: User[] = [
     email: "admin@f1",
     user_role: "administrador" as const,
   },
+  {
+    id: "4",
+    name: "Escudería Demo",
+    email: "demoescuderia@f1",
+    user_role: "escuderia" as const,
+  },
 ]
 
 // Función para detectar rol basado en el email
