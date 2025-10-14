@@ -1,8 +1,11 @@
+"use client"
+
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Calendar, MapPin } from "lucide-react"
+import { useState, useEffect } from "react"
 
-const races = [{
+const defaultRaces = [{
     date: "OCT 3–5",
     country: "SINGAPUR",
     circuit: "Marina Bay Street Circuit",
@@ -25,8 +28,31 @@ const races = [{
   }
 ];
 
-
 export function CalendarSection() {
+  const [events, setEvents] = useState(defaultRaces)
+
+  useEffect(() => {
+    // Cargar eventos desde localStorage (cargados por el admin)
+    const storedEvents = localStorage.getItem('f1_events_manual')
+    if (storedEvents) {
+      const adminEvents = JSON.parse(storedEvents)
+      // Convertir eventos del admin al formato esperado
+      const formattedEvents = adminEvents.map((event: any) => ({
+        date: new Date(event.date).toLocaleDateString('es-ES', { 
+          month: 'short', 
+          day: 'numeric' 
+        }).toUpperCase(),
+        country: event.country.toUpperCase(),
+        circuit: event.circuit,
+        status: "PRÓXIMO",
+        image: event.image || "/placeholder.svg",
+        name: event.name
+      }))
+      
+      // Combinar eventos por defecto con eventos del admin
+      setEvents([...formattedEvents, ...defaultRaces])
+    }
+  }, [])
   return (
     <section id="calendario" className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-3 items-left sm:items-center justify-between">
@@ -38,7 +64,7 @@ export function CalendarSection() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {races.map((race, index) => (
+        {events.map((race: any, index: number) => (
           <Card
             key={index}
             className="overflow-hidden bg-card border-border group hover:border-primary transition-colors"

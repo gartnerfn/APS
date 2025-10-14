@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const drivers = [
   {
@@ -155,17 +155,59 @@ const drivers = [
 
 export function DriversSection() {
   const [startIndex, setStartIndex] = useState(0)
+  const [allDrivers, setAllDrivers] = useState(drivers)
   const visibleCount = 6
+
+  useEffect(() => {
+    // Cargar pilotos desde localStorage (cargados por el admin)
+    const storedDrivers = localStorage.getItem('f1_drivers_manual')
+    if (storedDrivers) {
+      const adminDrivers = JSON.parse(storedDrivers)
+      // Convertir pilotos del admin al formato esperado
+      const formattedDrivers = adminDrivers.map((driver: any) => ({
+        name: driver.name,
+        number: driver.number.toString(),
+        team: driver.team,
+        country: getCountryFlag(driver.nationality),
+        image: driver.image || "/placeholder-user.jpg", // Usar la imagen cargada o una por defecto
+        points: 0,
+      }))
+      
+      // Combinar pilotos por defecto con pilotos del admin
+      setAllDrivers([...formattedDrivers, ...drivers])
+    }
+  }, [])
+
+  // Función helper para obtener banderas por nacionalidad
+  const getCountryFlag = (nationality: string) => {
+    const flags: { [key: string]: string } = {
+      'Dutch': '🇳🇱',
+      'Japanese': '🇯🇵', 
+      'Monégasque': '🇲🇨',
+      'British': '🇬🇧',
+      'Spanish': '🇪🇸',
+      'Mexican': '🇲🇽',
+      'Australian': '🇦🇺',
+      'Canadian': '🇨🇦',
+      'French': '🇫🇷',
+      'Argentinian': '🇦🇷',
+      'Thai': '🇹🇭',
+      'German': '🇩🇪',
+      'Finnish': '🇫🇮',
+      'Danish': '🇩🇰'
+    }
+    return flags[nationality] || '🏁'
+  }
 
   const handlePrev = () => {
     setStartIndex((prev) => Math.max(prev - visibleCount, 0))
   }
 
   const handleNext = () => {
-    setStartIndex((prev) => Math.min(prev + visibleCount, drivers.length - visibleCount))
+    setStartIndex((prev) => Math.min(prev + visibleCount, allDrivers.length - visibleCount))
   }
 
-  const visibleDrivers = drivers.slice(startIndex, startIndex + visibleCount)
+  const visibleDrivers = allDrivers.slice(startIndex, startIndex + visibleCount)
 
   return (
     <section id="pilotos" className="space-y-6">

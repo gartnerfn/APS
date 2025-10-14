@@ -18,6 +18,13 @@ export default function AdminPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [nameInput, setNameInput] = useState("")
   const [roleInput, setRoleInput] = useState<"usuario" | "escuderia" | "administrador">("usuario")
+
+  // Función helper para formatear fechas de forma segura
+  const formatDate = (dateValue: any) => {
+    if (!dateValue) return null
+    const date = new Date(dateValue)
+    return isNaN(date.getTime()) ? null : date.toLocaleDateString('es-ES')
+  }
   
   // Estados para crear nuevo usuario
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -52,6 +59,7 @@ export default function AdminPage() {
   const [eventDate, setEventDate] = useState("")
   const [eventCircuit, setEventCircuit] = useState("")
   const [eventCountry, setEventCountry] = useState("")
+  const [eventImage, setEventImage] = useState("")
 
   // Estados para formularios de escuderías
   const [teamName, setTeamName] = useState("")
@@ -63,11 +71,16 @@ export default function AdminPage() {
   const [driverTeam, setDriverTeam] = useState("")
   const [driverNationality, setDriverNationality] = useState("")
   const [driverNumber, setDriverNumber] = useState("")
+  const [driverImage, setDriverImage] = useState("")
 
   // Estados para formularios de FIA
   const [fiaTitle, setFiaTitle] = useState("")
   const [fiaCategory, setFiaCategory] = useState("")
   const [fiaDescription, setFiaDescription] = useState("")
+  const [fiaDate, setFiaDate] = useState("")
+
+  // Estados para fechas
+  const [teamDate, setTeamDate] = useState("")
 
   useEffect(() => {
     if (!user) {
@@ -178,6 +191,7 @@ export default function AdminPage() {
       date: eventDate,
       circuit: eventCircuit.trim(),
       country: eventCountry.trim(),
+      image: eventImage || "/placeholder.svg",
       created: new Date().toLocaleString()
     }
 
@@ -190,6 +204,7 @@ export default function AdminPage() {
     setEventDate("")
     setEventCircuit("")
     setEventCountry("")
+    setEventImage("")
     setShowEventForm(false)
     
     alert("Evento creado exitosamente")
@@ -197,7 +212,7 @@ export default function AdminPage() {
 
   // Funciones para manejo de escuderías
   const handleCreateTeam = () => {
-    if (!teamName.trim() || !teamCountry.trim() || !teamPrincipal.trim()) {
+    if (!teamName.trim() || !teamCountry.trim() || !teamPrincipal.trim() || !teamDate) {
       alert("Por favor completa todos los campos de la escudería")
       return
     }
@@ -207,6 +222,7 @@ export default function AdminPage() {
       name: teamName.trim(),
       country: teamCountry.trim(),
       principal: teamPrincipal.trim(),
+      date: teamDate,
       created: new Date().toLocaleString()
     }
 
@@ -218,6 +234,7 @@ export default function AdminPage() {
     setTeamName("")
     setTeamCountry("")
     setTeamPrincipal("")
+    setTeamDate("")
     setShowTeamForm(false)
     
     alert("Escudería creada exitosamente")
@@ -236,6 +253,7 @@ export default function AdminPage() {
       team: driverTeam.trim(),
       nationality: driverNationality.trim(),
       number: parseInt(driverNumber),
+      image: driverImage || "/placeholder-user.jpg",
       created: new Date().toLocaleString()
     }
 
@@ -248,6 +266,7 @@ export default function AdminPage() {
     setDriverTeam("")
     setDriverNationality("")
     setDriverNumber("")
+    setDriverImage("")
     setShowDriverForm(false)
     
     alert("Piloto creado exitosamente")
@@ -255,7 +274,7 @@ export default function AdminPage() {
 
   // Funciones para manejo de datos FIA
   const handleCreateFiaData = () => {
-    if (!fiaTitle.trim() || !fiaCategory.trim() || !fiaDescription.trim()) {
+    if (!fiaTitle.trim() || !fiaCategory.trim() || !fiaDescription.trim() || !fiaDate) {
       alert("Por favor completa todos los campos de FIA")
       return
     }
@@ -265,6 +284,7 @@ export default function AdminPage() {
       title: fiaTitle.trim(),
       category: fiaCategory.trim(),
       description: fiaDescription.trim(),
+      date: fiaDate,
       created: new Date().toLocaleString()
     }
 
@@ -276,6 +296,7 @@ export default function AdminPage() {
     setFiaTitle("")
     setFiaCategory("")
     setFiaDescription("")
+    setFiaDate("")
     setShowFiaForm(false)
     
     alert("Dato FIA creado exitosamente")
@@ -612,6 +633,27 @@ export default function AdminPage() {
                           onChange={(e) => setEventCountry(e.target.value)}
                         />
                       </div>
+                      <div>
+                        <Label htmlFor="eventImage">URL de la Imagen</Label>
+                        <Input
+                          id="eventImage"
+                          placeholder="Ej: https://ejemplo.com/imagen.jpg o /imagen.jpg"
+                          value={eventImage}
+                          onChange={(e) => setEventImage(e.target.value)}
+                        />
+                        {eventImage && (
+                          <div className="mt-2">
+                            <img 
+                              src={eventImage} 
+                              alt="Preview" 
+                              className="w-20 h-12 object-cover rounded border"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = "/placeholder.svg"
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
                       <div className="flex gap-2">
                         <Button onClick={handleCreateEvent} size="sm">Crear Evento</Button>
                         <Button variant="outline" onClick={() => setShowEventForm(false)} size="sm">Cancelar</Button>
@@ -627,9 +669,21 @@ export default function AdminPage() {
                   ) : (
                     events.map((event) => (
                       <div key={event.id} className="flex items-center justify-between p-2 border rounded">
-                        <div>
-                          <p className="font-medium text-sm">{event.name}</p>
-                          <p className="text-xs text-muted-foreground">{event.date} - {event.circuit}, {event.country}</p>
+                        <div className="flex items-center gap-2">
+                          {event.image && (
+                            <img 
+                              src={event.image} 
+                              alt={event.name}
+                              className="w-12 h-8 object-cover rounded"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = "/placeholder.svg"
+                              }}
+                            />
+                          )}
+                          <div>
+                            <p className="font-medium text-sm">{event.name}</p>
+                            <p className="text-xs text-muted-foreground">{event.date} - {event.circuit}, {event.country}</p>
+                          </div>
                         </div>
                         <Button variant="destructive" size="sm" onClick={() => handleDeleteEvent(event.id)}>
                           <Trash2 className="h-3 w-3" />
@@ -689,6 +743,15 @@ export default function AdminPage() {
                           onChange={(e) => setTeamPrincipal(e.target.value)}
                         />
                       </div>
+                      <div>
+                        <Label htmlFor="teamDate">Fecha de Fundación</Label>
+                        <Input
+                          id="teamDate"
+                          type="date"
+                          value={teamDate}
+                          onChange={(e) => setTeamDate(e.target.value)}
+                        />
+                      </div>
                       <div className="flex gap-2">
                         <Button onClick={handleCreateTeam} size="sm">Crear Escudería</Button>
                         <Button variant="outline" onClick={() => setShowTeamForm(false)} size="sm">Cancelar</Button>
@@ -707,6 +770,9 @@ export default function AdminPage() {
                         <div>
                           <p className="font-medium text-sm">{team.name}</p>
                           <p className="text-xs text-muted-foreground">{team.country} - {team.principal}</p>
+                          {formatDate(team.date) && (
+                            <p className="text-xs text-blue-600">Fundada: {formatDate(team.date)}</p>
+                          )}
                         </div>
                         <Button variant="destructive" size="sm" onClick={() => handleDeleteTeam(team.id)}>
                           <Trash2 className="h-3 w-3" />
@@ -750,21 +816,56 @@ export default function AdminPage() {
                       </div>
                       <div>
                         <Label htmlFor="driverTeam">Escudería</Label>
-                        <Input
+                        <select 
                           id="driverTeam"
-                          placeholder="Ej: Red Bull Racing"
-                          value={driverTeam}
+                          value={driverTeam} 
                           onChange={(e) => setDriverTeam(e.target.value)}
-                        />
+                          className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                        >
+                          <option value="">Seleccionar escudería</option>
+                          {teams.map((team) => (
+                            <option key={team.id} value={team.name}>{team.name}</option>
+                          ))}
+                          {/* Escuderías por defecto */}
+                          <option value="Red Bull Racing">Red Bull Racing</option>
+                          <option value="Ferrari">Ferrari</option>
+                          <option value="Mercedes">Mercedes</option>
+                          <option value="McLaren">McLaren</option>
+                          <option value="Aston Martin">Aston Martin</option>
+                          <option value="Alpine">Alpine</option>
+                          <option value="Williams">Williams</option>
+                          <option value="Racing Bulls">Racing Bulls</option>
+                          <option value="Haas">Haas</option>
+                          <option value="Sauber">Sauber</option>
+                        </select>
                       </div>
                       <div>
                         <Label htmlFor="driverNationality">Nacionalidad</Label>
-                        <Input
+                        <select 
                           id="driverNationality"
-                          placeholder="Ej: Dutch"
-                          value={driverNationality}
+                          value={driverNationality} 
                           onChange={(e) => setDriverNationality(e.target.value)}
-                        />
+                          className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                        >
+                          <option value="">Seleccionar nacionalidad</option>
+                          <option value="Dutch">Holandés</option>
+                          <option value="British">Británico</option>
+                          <option value="Spanish">Español</option>
+                          <option value="Mexican">Mexicano</option>
+                          <option value="Monégasque">Monégasco</option>
+                          <option value="Australian">Australiano</option>
+                          <option value="Canadian">Canadiense</option>
+                          <option value="French">Francés</option>
+                          <option value="Argentinian">Argentino</option>
+                          <option value="Thai">Tailandés</option>
+                          <option value="German">Alemán</option>
+                          <option value="Finnish">Finlandés</option>
+                          <option value="Danish">Danés</option>
+                          <option value="Japanese">Japonés</option>
+                          <option value="Chinese">Chino</option>
+                          <option value="Brazilian">Brasileño</option>
+                          <option value="Italian">Italiano</option>
+                        </select>
                       </div>
                       <div>
                         <Label htmlFor="driverNumber">Número</Label>
@@ -775,6 +876,27 @@ export default function AdminPage() {
                           value={driverNumber}
                           onChange={(e) => setDriverNumber(e.target.value)}
                         />
+                      </div>
+                      <div>
+                        <Label htmlFor="driverImage">URL de la Imagen</Label>
+                        <Input
+                          id="driverImage"
+                          placeholder="Ej: https://ejemplo.com/piloto.jpg o /piloto.jpg"
+                          value={driverImage}
+                          onChange={(e) => setDriverImage(e.target.value)}
+                        />
+                        {driverImage && (
+                          <div className="mt-2">
+                            <img 
+                              src={driverImage} 
+                              alt="Preview" 
+                              className="w-16 h-16 object-cover rounded-full border"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = "/placeholder-user.jpg"
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         <Button onClick={handleCreateDriver} size="sm">Crear Piloto</Button>
@@ -846,8 +968,8 @@ export default function AdminPage() {
                           <option value="">Seleccionar categoría</option>
                           <option value="Técnico">Reglamento Técnico</option>
                           <option value="Deportivo">Reglamento Deportivo</option>
-                          <option value="Penalización">Penalización</option>
                           <option value="Decisión">Decisión de Comisarios</option>
+                          <option value="Comunicado">Comunicado Oficial</option>
                           <option value="Otro">Otro</option>
                         </select>
                       </div>
@@ -858,6 +980,15 @@ export default function AdminPage() {
                           placeholder="Descripción detallada"
                           value={fiaDescription}
                           onChange={(e) => setFiaDescription(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="fiaDate">Fecha del Documento</Label>
+                        <Input
+                          id="fiaDate"
+                          type="date"
+                          value={fiaDate}
+                          onChange={(e) => setFiaDate(e.target.value)}
                         />
                       </div>
                       <div className="flex gap-2">
@@ -878,6 +1009,9 @@ export default function AdminPage() {
                         <div>
                           <p className="font-medium text-sm">{fia.title}</p>
                           <p className="text-xs text-muted-foreground">{fia.category} - {fia.description}</p>
+                          {formatDate(fia.date) && (
+                            <p className="text-xs text-green-600">Fecha: {formatDate(fia.date)}</p>
+                          )}
                         </div>
                         <Button variant="destructive" size="sm" onClick={() => handleDeleteFiaData(fia.id)}>
                           <Trash2 className="h-3 w-3" />
