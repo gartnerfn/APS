@@ -36,14 +36,14 @@ const DEFAULT_USERS: User[] = [
     user_role: "usuario" as const,
   },
   {
-    id: "2", 
+    id: "2",
     name: "Escudería F1",
     email: "escuderia@f1",
     user_role: "escuderia" as const,
   },
   {
     id: "3",
-    name: "Administrador F1", 
+    name: "Administrador F1",
     email: "admin@f1",
     user_role: "administrador" as const,
   },
@@ -52,25 +52,25 @@ const DEFAULT_USERS: User[] = [
 // Función para detectar rol basado en el email
 const detectUserRole = (email: string): "usuario" | "escuderia" | "administrador" => {
   const emailLower = email.toLowerCase().trim()
-  
+
   // Cuentas específicas hardcodeadas
   if (emailLower === "admin") {
     return "administrador"
   }
-  
+
   if (emailLower === "escuderia") {
     return "escuderia"
   }
-  
+
   // Detección por patrones para otros emails
   if (emailLower.includes("admin") || emailLower.includes("administrador")) {
     return "administrador"
   }
-  
+
   if (emailLower.includes("escuderia") || emailLower.includes("team") || emailLower.includes("equipo")) {
     return "escuderia"
   }
-  
+
   // Por defecto es usuario
   return "usuario"
 }
@@ -93,20 +93,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser)
-        // Asegurar que el usuario tenga el rol correcto
-        const correctRole = detectUserRole(parsedUser.email)
-        const completeUser: User = {
-          ...parsedUser,
-          user_role: correctRole
-        }
-        setUser(completeUser)
-        localStorage.setItem("f1_user", JSON.stringify(completeUser))
+        setUser(parsedUser)
+        // localStorage.setItem("f1_user", JSON.stringify(parsedUser))
       } catch (error) {
         console.error("Error parsing stored user:", error)
         localStorage.removeItem("f1_user")
       }
     }
-    
+
     setLoading(false)
   }, [])
 
@@ -126,20 +120,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error("Contraseña incorrecta")
     }
 
-    // Asignar el rol correcto basado en el email
-    const userWithRole = { 
-      ...foundUser, 
-      user_role: detectUserRole(email) 
-    }
-    
-    // Actualizar en el array de usuarios
-    const updatedUsers = allUsers.map((u: User) => 
-      u.email === email ? userWithRole : u
-    )
-    localStorage.setItem("f1_users", JSON.stringify(updatedUsers))
-    
-    setUser(userWithRole)
-    localStorage.setItem("f1_user", JSON.stringify(userWithRole))
+    setUser(foundUser)
+    localStorage.setItem("f1_user", JSON.stringify(foundUser))
   }
 
   const register = async (name: string, email: string, password: string) => {
@@ -164,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const updatedUsers = [...allUsers, newUser]
     localStorage.setItem("f1_users", JSON.stringify(updatedUsers))
-    
+
     setUser(newUser)
     localStorage.setItem("f1_user", JSON.stringify(newUser))
   }
@@ -252,7 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const updatedUsers = [...allUsers, newUser]
     localStorage.setItem("f1_users", JSON.stringify(updatedUsers))
-    
+
     return true // Usuario creado exitosamente
   }
 

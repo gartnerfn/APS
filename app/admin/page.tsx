@@ -75,9 +75,6 @@ export default function AdminPage() {
       alert("Usuario creado exitosamente")
       setUsers(getAllUsers())
       // Limpiar formulario
-      setNewUserName("")
-      setNewUserEmail("")
-      setNewUserRole("usuario")
       setShowCreateForm(false)
     } else {
       alert("El email ya está registrado")
@@ -85,9 +82,6 @@ export default function AdminPage() {
   }
 
   const cancelCreateUser = () => {
-    setNewUserName("")
-    setNewUserEmail("")
-    setNewUserRole("usuario")
     setShowCreateForm(false)
   }
 

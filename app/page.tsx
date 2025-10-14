@@ -3,7 +3,8 @@ import { CalendarSection } from "@/components/calendar-section"
 import { DriversSection } from "@/components/drivers-section"
 import { PenaltiesSection } from "@/components/penalties-section"
 import { StandingsSection } from "@/components/standings-section"
-import MultimediaSection from "@/components/multimedia-section"
+import { MultimediaSection } from "@/components/multimedia-section"
+import { FloatingChat } from "@/components/floating-chat"
 
 export default function Home() {
   return (
@@ -15,6 +16,7 @@ export default function Home() {
         <StandingsSection />
         <PenaltiesSection />
         <MultimediaSection />
+        <FloatingChat />
       </main>
     </div>
   )

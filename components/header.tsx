@@ -24,12 +24,10 @@ export function Header() {
   return (
     <header className="sticky top-0 border-b border-border bg-card z-50">
       <div className=" grid grid-cols-2 md:grid-cols-[1fr_auto_1fr] mx-auto px-4 py-2">
-        {/* Logo */}
-        <div className="flex items-center gap-3">
+        <Link href="/#calendario" className="flex items-center gap-3">
           <Image src="/f1.png" alt="F1 Logo" width={48} height={48} />
-        </div>
+        </Link>
 
-        {/* Navegación Desktop */}
         {!isMobile && (
           <nav className="flex items-center gap-6 text-sm font-medium">
             {navLinks.map((link) => (
@@ -44,10 +42,8 @@ export function Header() {
           </nav>
         )}
 
-        {/* Usuario / Botones */}
         <div className="flex items-center gap-3 place-self-end">
           {isMobile ? (
-            // Móvil: Sidebar con menú
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
