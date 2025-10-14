@@ -1,10 +1,12 @@
 import { Header } from "@/components/header"
 import { CalendarSection } from "@/components/calendar-section"
 import { DriversSection } from "@/components/drivers-section"
+import { TeamsSection } from "@/components/teams-section"
 import { PenaltiesSection } from "@/components/penalties-section"
 import { StandingsSection } from "@/components/standings-section"
 import { MultimediaSection } from "@/components/multimedia-section"
 import { FloatingChat } from "@/components/floating-chat"
+import { FiaSection } from "@/components/fia-section"
 
 export default function Home() {
   return (
@@ -13,8 +15,10 @@ export default function Home() {
       <main className="container mx-auto px-4 py-8 space-y-16">
         <CalendarSection />
         <DriversSection />
+        <TeamsSection />
         <StandingsSection />
         <PenaltiesSection />
+        <FiaSection />
         <MultimediaSection />
         <FloatingChat />
       </main>

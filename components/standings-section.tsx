@@ -1,7 +1,10 @@
+"use client"
+
 import { Card } from "@/components/ui/card"
 import { Trophy, TrendingUp, TrendingDown, Minus } from "lucide-react"
+import { useState, useEffect } from "react"
 
-const standings = [
+const defaultStandings = [
   { position: 1, driver: "Max Verstappen", team: "Red Bull Racing", points: 575, change: 0, country: "🇳🇱" },
   { position: 2, driver: "Yuki Tsunoda", team: "Red Bull Racing", points: 285, change: 0, country: "🇲🇽" },
   { position: 3, driver: "Lewis Hamilton", team: "Mercedes", points: 234, change: 1, country: "🇬🇧" },
@@ -14,7 +17,7 @@ const standings = [
   { position: 10, driver: "Lance Stroll", team: "Aston Martin", points: 74, change: -2, country: "🇨🇦" },
 ]
 
-const teamStandings = [
+const defaultTeamStandings = [
   { position: 1, team: "Red Bull Racing", points: 860, change: 0 },
   { position: 2, team: "Mercedes", points: 409, change: 1 },
   { position: 3, team: "Ferrari", points: 406, change: -1 },
@@ -23,6 +26,60 @@ const teamStandings = [
 ]
 
 export function StandingsSection() {
+  const [standings, setStandings] = useState(defaultStandings)
+  const [teamStandings, setTeamStandings] = useState(defaultTeamStandings)
+
+  useEffect(() => {
+    // Cargar pilotos y escuderías desde localStorage
+    const storedDrivers = localStorage.getItem('f1_drivers_manual')
+    const storedTeams = localStorage.getItem('f1_teams_manual')
+
+    if (storedDrivers) {
+      const adminDrivers = JSON.parse(storedDrivers)
+      const formattedStandings = adminDrivers.map((driver: any, index: number) => ({
+        position: index + 1,
+        driver: driver.name,
+        team: driver.team,
+        points: Math.floor(Math.random() * 300), // Puntos aleatorios para demo
+        change: 0,
+        country: getCountryFlag(driver.nationality)
+      }))
+      
+      setStandings([...formattedStandings, ...defaultStandings])
+    }
+
+    if (storedTeams) {
+      const adminTeams = JSON.parse(storedTeams)
+      const formattedTeamStandings = adminTeams.map((team: any, index: number) => ({
+        position: index + 1,
+        team: team.name,
+        points: Math.floor(Math.random() * 500), // Puntos aleatorios para demo
+        change: 0
+      }))
+      
+      setTeamStandings([...formattedTeamStandings, ...defaultTeamStandings])
+    }
+  }, [])
+
+  const getCountryFlag = (nationality: string) => {
+    const flags: { [key: string]: string } = {
+      'Dutch': '🇳🇱',
+      'Japanese': '🇯🇵', 
+      'Monégasque': '🇲🇨',
+      'British': '🇬🇧',
+      'Spanish': '🇪🇸',
+      'Mexican': '🇲🇽',
+      'Australian': '🇦🇺',
+      'Canadian': '🇨🇦',
+      'French': '🇫🇷',
+      'Argentinian': '🇦🇷',
+      'Thai': '🇹🇭',
+      'German': '🇩🇪',
+      'Finnish': '🇫🇮',
+      'Danish': '🇩🇰'
+    }
+    return flags[nationality] || '🏁'
+  }
   return (
     <section id="puntajes" className="space-y-6">
       <div className="flex items-center gap-3">

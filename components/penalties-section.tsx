@@ -1,8 +1,11 @@
+"use client"
+
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AlertTriangle } from "lucide-react"
+import { useState, useEffect } from "react"
 
-const penalties = [
+const defaultPenalties = [
   {
     race: "GP de Bahréin",
     driver: "Kevin Magnussen",
@@ -60,6 +63,13 @@ const penalties = [
 ]
 
 export function PenaltiesSection() {
+  const [penalties, setPenalties] = useState(defaultPenalties)
+
+  useEffect(() => {
+    // Solo usar las penalizaciones por defecto ya que se eliminó la categoría de penalización de FIA
+    setPenalties(defaultPenalties)
+  }, [])
+
   return (
     <section id="sanciones" className="space-y-6">
       <div className="flex items-center gap-3">

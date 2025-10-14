@@ -39,6 +39,9 @@ export function Header() {
                 {link.label}
               </a>
             ))}
+            {user?.user_role === 'escuderia' && (
+              <a href="/reclamos" className="transition-colors hover:text-foreground/80 text-foreground/60">Reclamos</a>
+            )}
           </nav>
         )}
 
@@ -61,6 +64,14 @@ export function Header() {
                       {link.label}
                     </a>
                   ))}
+                  {user?.user_role === 'escuderia' && (
+                    <a
+                      href="/reclamos"
+                      className="text-foreground hover:text-primary transition-colors"
+                    >
+                      Reclamos
+                    </a>
+                  )}
                   <div className="border-t border-border my-2" />
                   {user ? (
                     <ProfileDropdown />
