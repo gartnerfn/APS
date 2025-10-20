@@ -9,9 +9,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { Header } from "@/components/header"
+import { FloatingChat } from "@/components/floating-chat"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { ArrowLeft, Trash2, Edit3, Plus, UserPlus, Upload, FileText, Users, Trophy, Database } from "lucide-react"
+import { getAllTeams, initializeDefaultTeams, type F1Team } from "@/lib/default-teams"
+import { sendReclamoStatusChangeMessage } from "@/lib/messaging-utils"
 
 export default function AdminPage() {
   const { user, getAllUsers, updateUser, deleteUser, createUser } = useAuth()
@@ -67,6 +70,7 @@ export default function AdminPage() {
   const [teamName, setTeamName] = useState("")
   const [teamCountry, setTeamCountry] = useState("")
   const [teamPrincipal, setTeamPrincipal] = useState("")
+  const [teamImageUrl, setTeamImageUrl] = useState("")
 
   // Estados para formularios de pilotos
   const [driverName, setDriverName] = useState("")
@@ -90,6 +94,7 @@ export default function AdminPage() {
     id: string
     teamId: string
     teamName: string
+    userId: string // ID del usuario que creó el reclamo
     type: string
     reference?: string
     event?: string
@@ -105,26 +110,38 @@ export default function AdminPage() {
   const [showOnlyPending, setShowOnlyPending] = useState(true)
 
   useEffect(() => {
+    // Debug: verificar el estado del usuario
+    console.log("Admin page - User:", user)
+    console.log("Admin page - User role:", user?.user_role)
+    
     if (!user) {
+      console.log("No user found, redirecting to login")
       router.push("/login")
       return
     }
 
     if (user.user_role !== "administrador") {
+      console.log("User is not admin, redirecting to home")
       router.push("/")
       return
     }
 
+    console.log("User is admin, loading data")
     setUsers(getAllUsers())
+    
+    // Inicializar escuderías por defecto
+    initializeDefaultTeams()
     
     // Cargar datos manuales desde localStorage
     const storedEvents = localStorage.getItem('f1_events_manual')
-    const storedTeams = localStorage.getItem('f1_teams_manual')
     const storedDrivers = localStorage.getItem('f1_drivers_manual')
     const storedFiaData = localStorage.getItem('f1_fia_manual')
     
+    // Obtener todas las escuderías (por defecto + manuales)
+    const allTeams = getAllTeams()
+    
     if (storedEvents) setEvents(JSON.parse(storedEvents))
-    if (storedTeams) setTeams(JSON.parse(storedTeams))
+    setTeams(allTeams) // Usar todas las escuderías
     if (storedDrivers) setDrivers(JSON.parse(storedDrivers))
     if (storedFiaData) setFiaData(JSON.parse(storedFiaData))
     
@@ -278,18 +295,28 @@ export default function AdminPage() {
       country: teamCountry.trim(),
       principal: teamPrincipal.trim(),
       date: teamDate,
-      created: new Date().toLocaleString()
+      created: new Date().toLocaleString(),
+      imageUrl: teamImageUrl.trim() || undefined
     }
 
-    const updatedTeams = [...teams, newTeam]
-    setTeams(updatedTeams)
-    localStorage.setItem('f1_teams_manual', JSON.stringify(updatedTeams))
+    // Solo agregar a las escuderías manuales, no a todas
+    const storedManualTeams = localStorage.getItem('f1_teams_manual')
+    const manualTeams = storedManualTeams ? JSON.parse(storedManualTeams) : []
+    const updatedManualTeams = [...manualTeams, newTeam]
+    
+    // Actualizar localStorage solo con escuderías manuales
+    localStorage.setItem('f1_teams_manual', JSON.stringify(updatedManualTeams))
+    
+    // Actualizar estado con todas las escuderías
+    const allTeams = getAllTeams()
+    setTeams(allTeams)
     
     // Limpiar formulario
     setTeamName("")
     setTeamCountry("")
     setTeamPrincipal("")
     setTeamDate("")
+    setTeamImageUrl("")
     setShowTeamForm(false)
     
     alert("Escudería creada exitosamente")
@@ -367,9 +394,17 @@ export default function AdminPage() {
 
   const handleDeleteTeam = (id: string) => {
     if (!confirm("¿Eliminar esta escudería?")) return
-    const updatedTeams = teams.filter(t => t.id !== id)
-    setTeams(updatedTeams)
-    localStorage.setItem('f1_teams_manual', JSON.stringify(updatedTeams))
+    
+    // Solo eliminar de las escuderías manuales
+    const storedManualTeams = localStorage.getItem('f1_teams_manual')
+    const manualTeams = storedManualTeams ? JSON.parse(storedManualTeams) : []
+    const updatedManualTeams = manualTeams.filter((t: any) => t.id !== id)
+    
+    localStorage.setItem('f1_teams_manual', JSON.stringify(updatedManualTeams))
+    
+    // Actualizar estado con todas las escuderías
+    const allTeams = getAllTeams()
+    setTeams(allTeams)
   }
 
   const handleDeleteDriver = (id: string) => {
@@ -515,16 +550,62 @@ export default function AdminPage() {
   const updateClaimStatus = (id: string, status: ClaimStatus) => {
     const stored = localStorage.getItem(CLAIMS_KEY)
     const all: FiaClaim[] = stored ? JSON.parse(stored) : []
+    const claim = all.find(c => c.id === id)
+    
+    if (!claim || !user) return
+    
     const now = new Date().toISOString()
-    const updated = all.map(c => (c.id === id ? { ...c, status, updatedAt: now } : c))
+    const updatedClaim = { ...claim, status, updatedAt: now }
+    const updated = all.map(c => (c.id === id ? updatedClaim : c))
+    
     localStorage.setItem(CLAIMS_KEY, JSON.stringify(updated))
     setClaims(updated.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1)))
+    
+    // Enviar mensaje automático a la escudería sobre el cambio de estado
+    console.log("Actualizando estado de reclamo:", {
+      claimId: id,
+      newStatus: status,
+      claim: updatedClaim,
+      admin: user.name
+    })
+    
+    sendReclamoStatusChangeMessage(updatedClaim, status, user)
+    
     try { window.dispatchEvent(new Event("f1-fia-claims-updated")) } catch {}
   }
 
   const pendingCount = claims.filter(c => c.status === "pendiente").length
 
-  if (!user) return null
+  // Si no hay usuario, mostrar pantalla de carga
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p>Verificando autenticación...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Si no es administrador, mostrar acceso denegado
+  if (user.user_role !== "administrador") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p>Acceso denegado</p>
+          <p className="text-sm text-muted-foreground">
+            Su rol actual: {user.user_role} - Necesita rol: "administrador"
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Usuario: {user.name} ({user.email})
+          </p>
+          <Button onClick={() => router.push("/")}>
+            Volver al Inicio
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -1191,6 +1272,7 @@ export default function AdminPage() {
           </Card>
         </div>
       </div>
+      <FloatingChat />
     </div>
   )
 }

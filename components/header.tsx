@@ -40,8 +40,12 @@ export function Header() {
               </a>
             ))}
             {user?.user_role === 'escuderia' && (
-              <a href="/reclamos" className="transition-colors hover:text-foreground/80 text-foreground/60">Reclamos</a>
+              <>
+                <a href="/escuderia" className="text-foreground hover:text-primary transition-colors">PANEL ESCUDERÍA</a>
+                <a href="/reclamos" className="text-foreground hover:text-primary transition-colors">RECLAMOS</a>
+              </>
             )}
+            
           </nav>
         )}
 
@@ -65,11 +69,27 @@ export function Header() {
                     </a>
                   ))}
                   {user?.user_role === 'escuderia' && (
+                    <>
+                      <a
+                        href="/escuderia"
+                        className="text-foreground hover:text-primary transition-colors"
+                      >
+                        Panel Escudería
+                      </a>
+                      <a
+                        href="/reclamos"
+                        className="text-foreground hover:text-primary transition-colors"
+                      >
+                        Reclamos
+                      </a>
+                    </>
+                  )}
+                  {user?.user_role === 'administrador' && (
                     <a
-                      href="/reclamos"
+                      href="/admin"
                       className="text-foreground hover:text-primary transition-colors"
                     >
-                      Reclamos
+                      Administración
                     </a>
                   )}
                   <div className="border-t border-border my-2" />

@@ -72,9 +72,9 @@ export default function LoginPage() {
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <h3 className="text-sm font-semibold mb-2">Cuentas de ejemplo:</h3>
             <div className="text-xs space-y-1 text-muted-foreground">
-              <div><strong>admin@f1</strong> - Administrador</div>
-              <div><strong>escuderia@f1</strong> - Escudería</div>
-              <div><strong>usuario@f1</strong> - Usuario</div>
+              <div><strong>admin@f1</strong> - Administrador <span className="text-blue-600">(Panel Admin)</span></div>
+              <div><strong>escuderia@f1</strong> - Escudería <span className="text-green-600">(Panel Escudería)</span></div>
+              <div><strong>usuario@f1</strong> - Usuario <span className="text-gray-600">(Vista Pública)</span></div>
               <div className="mt-2"><em>Contraseña para todas: 123456</em></div>
             </div>
           </div>

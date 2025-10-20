@@ -3,16 +3,18 @@
 import { Card } from "@/components/ui/card"
 import { Users, MapPin } from "lucide-react"
 import { useState, useEffect } from "react"
+import { getAllTeams, initializeDefaultTeams, type F1Team } from "@/lib/default-teams"
 
 export function TeamsSection() {
-  const [teams, setTeams] = useState<any[]>([])
+  const [teams, setTeams] = useState<F1Team[]>([])
 
   useEffect(() => {
-    // Cargar escuderías desde localStorage (cargadas por el admin)
-    const storedTeams = localStorage.getItem('f1_teams_manual')
-    if (storedTeams) {
-      setTeams(JSON.parse(storedTeams))
-    }
+    // Inicializar escuderías por defecto
+    initializeDefaultTeams()
+    
+    // Obtener todas las escuderías (por defecto + manuales)
+    const allTeams = getAllTeams()
+    setTeams(allTeams)
   }, [])
 
   const formatDate = (dateValue: any) => {
