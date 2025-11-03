@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Calendar, MapPin } from "lucide-react"
 import { useState, useEffect } from "react"
+import Link from "next/link"
 
 const defaultRaces = [{
     date: "OCT 3–5",
@@ -57,10 +58,13 @@ export function CalendarSection() {
     <section id="calendario" className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-3 items-left sm:items-center justify-between">
         <h2 className="text-5xl font-bold tracking-tighter text-foreground">CALENDARIO 2025</h2>
+        <Link href="/calendar">
+        
         <Button variant="outline" className="gap-2 bg-transparent">
           <Calendar className="h-4 w-4" />
           Ver Calendario Completo
         </Button>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
