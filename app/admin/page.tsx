@@ -15,6 +15,7 @@ import { toast } from "@/hooks/use-toast"
 import { ArrowLeft, Trash2, Edit3, Plus, UserPlus, Upload, FileText, Users, Trophy, Database, Wrench, Share2, Play, Check, AlertTriangle, Ban } from "lucide-react"
 import { getAllTeams, initializeDefaultTeams, type F1Team } from "@/lib/default-teams"
 import { getTeamIdFromName, getAllDrivers, initializeDefaultDrivers } from "@/lib/default-drivers"
+import { getAllRaces, initializeDefaultRaces, type F1Race } from "@/lib/default-races"
 import { sendReclamoStatusChangeMessage, getAllTeamUsers, sendInspectionScheduledMessage, sendInspectionProgressMessage, sendInspectionResultMessage } from "@/lib/messaging-utils"
 
 export default function AdminPage() {
@@ -112,6 +113,13 @@ export default function AdminPage() {
   const [inspectionResultDraft, setInspectionResultDraft] = useState("")
   const [inspectionFilter, setInspectionFilter] = useState<"activos" | "todos">("activos")
   const [inspectionTypeFilter, setInspectionTypeFilter] = useState<"todos" | InspectionType>("todos")
+
+  // Helper para actualizar inspecciones y disparar evento
+  const updateInspections = (newInspections: Inspection[]) => {
+    setInspections(newInspections)
+    localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(newInspections))
+    window.dispatchEvent(new Event("f1-inspections-updated"))
+  }
 
   // Estados para formularios de eventos
   const [eventName, setEventName] = useState("")
@@ -353,6 +361,13 @@ export default function AdminPage() {
     setEvents(updatedEvents)
     localStorage.setItem('f1_events_manual', JSON.stringify(updatedEvents))
     
+    // Disparar evento para actualizar el calendario
+    try {
+      window.dispatchEvent(new Event('f1-events-updated'))
+    } catch (e) {
+      console.log('No se pudo disparar evento f1-events-updated')
+    }
+    
     // Limpiar formulario
     setEventName("")
     setEventDate("")
@@ -490,6 +505,13 @@ export default function AdminPage() {
     const updatedEvents = events.filter(e => e.id !== id)
     setEvents(updatedEvents)
     localStorage.setItem('f1_events_manual', JSON.stringify(updatedEvents))
+    
+    // Disparar evento para actualizar el calendario
+    try {
+      window.dispatchEvent(new Event('f1-events-updated'))
+    } catch (e) {
+      console.log('No se pudo disparar evento f1-events-updated')
+    }
   }
 
   const handleDeleteTeam = (id: string) => {
@@ -526,8 +548,27 @@ export default function AdminPage() {
   }
 
   // ---------- Gestión de Resultados de Carreras ----------
-  const [newRaceName, setNewRaceName] = useState("")
-  const [newRaceDate, setNewRaceDate] = useState("")
+  const [selectedRaceId, setSelectedRaceId] = useState("")
+  const [availableRaces, setAvailableRaces] = useState<F1Race[]>([])
+
+  // Cargar carreras disponibles
+  useEffect(() => {
+    initializeDefaultRaces()
+    const loadAvailableRaces = () => {
+      const races = getAllRaces()
+      setAvailableRaces(races)
+    }
+    
+    loadAvailableRaces()
+    
+    // Escuchar cambios
+    const handleRacesUpdate = () => {
+      loadAvailableRaces()
+    }
+    
+    window.addEventListener('f1-events-updated', handleRacesUpdate)
+    return () => window.removeEventListener('f1-events-updated', handleRacesUpdate)
+  }, [])
 
   const getPointsForPosition = (pos: number) => {
     const table = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
@@ -540,27 +581,37 @@ export default function AdminPage() {
     try { window.dispatchEvent(new Event("f1-races-updated")) } catch {}
   }
 
-  const handleCreateRace = () => {
-    if (!newRaceName.trim()) {
-      alert("Ingresá el nombre de la carrera")
-      return
+  const handleSelectRace = (raceId: string) => {
+    setSelectedRaceId(raceId)
+    
+    // Buscar si ya existen resultados para esta carrera
+    const existingRace = races.find(r => r.id === raceId)
+    if (!existingRace) {
+      // Si no existe, crear una nueva entrada de resultados
+      const selectedF1Race = availableRaces.find(r => r.id === raceId)
+      if (selectedF1Race) {
+        const race: Race = {
+          id: raceId,
+          name: selectedF1Race.name,
+          date: selectedF1Race.fullDate,
+          results: Array.from({ length: 20 }, (_, i) => ({ position: i + 1, driver: "", number: "", team: "" })),
+          createdAt: new Date().toISOString()
+        }
+        const next = [race, ...races]
+        saveRacesToStorage(next)
+      }
     }
-    const race: Race = {
-      id: Date.now().toString(),
-      name: newRaceName.trim(),
-      date: newRaceDate || undefined,
-      results: Array.from({ length: 20 }, (_, i) => ({ position: i + 1, driver: "", number: "", team: "" })),
-      createdAt: new Date().toISOString()
-    }
-    const next = [race, ...races]
-    saveRacesToStorage(next)
-    setNewRaceName("")
-    setNewRaceDate("")
   }
 
-  const handleDeleteRace = (id: string) => {
-    if (!confirm("¿Eliminar esta carrera y sus resultados?")) return
-    const next = races.filter(r => r.id !== id)
+  const handleClearRaceResults = (raceId: string) => {
+    if (!confirm("¿Limpiar todos los resultados de esta carrera?")) return
+    const next = races.map(r => {
+      if (r.id !== raceId) return r
+      return {
+        ...r,
+        results: Array.from({ length: 20 }, (_, i) => ({ position: i + 1, driver: "", number: "", team: "" }))
+      }
+    })
     saveRacesToStorage(next)
   }
 
@@ -571,6 +622,33 @@ export default function AdminPage() {
       return { ...r, results }
     })
     setRaces(next) // no persistir en cada tecla; usuario guardará manualmente
+  }
+
+  const updateDriverSelection = (raceId: string, position: number, driverId: string) => {
+    const selectedDriver = drivers.find(d => d.id === driverId)
+    
+    if (selectedDriver) {
+      const next = races.map(r => {
+        if (r.id !== raceId) return r
+        const results = r.results.map(rr => 
+          rr.position === position 
+            ? { 
+                ...rr, 
+                driver: selectedDriver.name,
+                number: selectedDriver.number || "",
+                team: selectedDriver.team || ""
+              } 
+            : rr
+        )
+        return { ...r, results }
+      })
+      setRaces(next)
+    } else {
+      // Si no se encuentra el piloto (campo vacío), limpiar los campos
+      updateRaceField(raceId, position, "driver", "")
+      updateRaceField(raceId, position, "number", "")
+      updateRaceField(raceId, position, "team", "")
+    }
   }
 
   const handleSaveRace = (raceId: string) => {
@@ -1048,8 +1126,7 @@ export default function AdminPage() {
                         updatedAt: nowIso
                       }
                       const updated = [newI, ...inspections]
-                      setInspections(updated)
-                      localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(updated))
+                      updateInspections(updated)
                       // Notificar a escudería
                       if (user) {
                         sendInspectionScheduledMessage(newI as any, user as any, newI.teamUserId)
@@ -1110,8 +1187,7 @@ export default function AdminPage() {
                         {i.status === "programado" && (
                           <Button size="sm" variant="secondary" onClick={()=>{
                             const updated = inspections.map(x => x.id===i.id ? ({...x, status: "en_progreso" as InspectionStatus, updatedAt: new Date().toISOString()}) : x)
-                            setInspections(updated)
-                            localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(updated))
+                            updateInspections(updated)
                             if (user) sendInspectionProgressMessage(i as any, user as any, i.teamUserId)
                           }}>
                             <Play className="h-3 w-3 mr-1"/> Iniciar
@@ -1122,8 +1198,7 @@ export default function AdminPage() {
                             const res = prompt("Resumen de resultados")
                             const now = new Date().toISOString()
                             const updated = inspections.map(x => x.id===i.id ? ({...x, status: "completado" as InspectionStatus, resultsSummary: res || x.resultsSummary, performedAt: now, updatedAt: now}) : x)
-                            setInspections(updated)
-                            localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(updated))
+                            updateInspections(updated)
                             if (user) sendInspectionResultMessage({...i, resultsSummary: res, status: "completado", performedAt: now} as any, user as any, i.teamUserId)
                           }}>
                             <Check className="h-3 w-3 mr-1"/> Completar
@@ -1608,98 +1683,111 @@ export default function AdminPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Crear carrera */}
+                {/* Seleccionar carrera */}
                 <div className="border rounded-lg p-4 bg-muted/50">
-                  <h4 className="font-semibold mb-3">Nueva Carrera</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <h4 className="font-semibold mb-3">Seleccionar Carrera</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <Label htmlFor="raceName">Nombre</Label>
-                      <Input id="raceName" value={newRaceName} onChange={(e) => setNewRaceName(e.target.value)} placeholder="Ej: Bahrain Grand Prix" />
-                    </div>
-                    <div>
-                      <Label htmlFor="raceDate">Fecha</Label>
-                      <Input id="raceDate" type="date" value={newRaceDate} onChange={(e) => setNewRaceDate(e.target.value)} />
+                      <Label htmlFor="raceSelect">Carrera</Label>
+                      <select 
+                        id="raceSelect" 
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        value={selectedRaceId} 
+                        onChange={(e) => handleSelectRace(e.target.value)}
+                      >
+                        <option value="">Selecciona una carrera...</option>
+                        {availableRaces.map((race) => (
+                          <option key={race.id} value={race.id}>
+                            {race.name} - {new Date(race.fullDate).toLocaleDateString('es-ES')}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="flex items-end">
-                      <Button onClick={handleCreateRace} className="w-full"><Plus className="h-4 w-4 mr-2"/>Crear Carrera</Button>
+                      {selectedRaceId && (
+                        <Badge variant="secondary" className="h-10 px-3 flex items-center">
+                          <Trophy className="h-4 w-4 mr-1" />
+                          Carrera seleccionada
+                        </Badge>
+                      )}
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">Completá hasta el puesto 20. Los puntos se calculan automáticamente (25–18–15–12–10–8–6–4–2–1) solo para el Top 10.</p>
+                  <p className="text-xs text-muted-foreground mt-2">Selecciona una carrera del calendario F1 2025 para cargar sus resultados. Los puntos se calculan automáticamente (25–18–15–12–10–8–6–4–2–1) solo para el Top 10.</p>
                 </div>
 
-                {/* Lista de carreras */}
+                {/* Resultados de la carrera seleccionada */}
                 <div className="space-y-4 max-h-[36rem] overflow-y-auto pr-1">
-                  {races.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No hay carreras. Creá una y cargá el Top 10.</p>
+                  {!selectedRaceId ? (
+                    <p className="text-sm text-muted-foreground">Selecciona una carrera para cargar sus resultados.</p>
                   ) : (
-                    races.map((race) => (
-                      <div key={race.id} className="border rounded-lg">
-                        <div className="flex items-center justify-between p-3 border-b">
-                          <div>
-                            <p className="font-semibold text-sm">{race.name}</p>
-                            {race.date && <p className="text-xs text-muted-foreground">{race.date}</p>}
+                    (() => {
+                      const selectedRace = races.find(r => r.id === selectedRaceId)
+                      if (!selectedRace) return null
+                      
+                      return (
+                        <div key={selectedRace.id} className="border rounded-lg">
+                          <div className="flex items-center justify-between p-3 border-b">
+                            <div>
+                              <p className="font-semibold text-sm">{selectedRace.name}</p>
+                              {selectedRace.date && <p className="text-xs text-muted-foreground">{selectedRace.date}</p>}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" variant="secondary" onClick={() => handleSaveRace(selectedRace.id)}>Guardar Resultados</Button>
+                              <Button size="sm" variant="destructive" onClick={() => handleClearRaceResults(selectedRace.id)}>
+                                <Trash2 className="h-3 w-3 mr-1"/>
+                                Limpiar Resultados
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Button size="sm" variant="secondary" onClick={() => handleSaveRace(race.id)}>Guardar Resultados</Button>
-                            <Button size="sm" variant="destructive" onClick={() => handleDeleteRace(race.id)}><Trash2 className="h-3 w-3"/></Button>
+                          <div className="p-3">
+                            <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground mb-2">
+                              <div className="col-span-1">Pos</div>
+                              <div className="col-span-6">Piloto</div>
+                              <div className="col-span-2">Número</div>
+                              <div className="col-span-2">Escudería</div>
+                              <div className="col-span-1 text-right">Pts</div>
+                            </div>
+                            <div className="space-y-2">
+                              {Array.from({ length: 20 }, (_, i) => i + 1).map((pos) => {
+                                const rr = selectedRace.results.find(r => r.position === pos) || { position: pos, driver: "", number: "", team: "" }
+                                const selectedDriver = drivers.find(d => d.name === rr.driver)
+                                return (
+                                  <div key={pos} className="grid grid-cols-12 gap-2 items-center">
+                                    <div className="col-span-1 text-sm font-medium">{pos}</div>
+                                    <div className="col-span-6">
+                                      <select 
+                                        className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        value={selectedDriver?.id || ""}
+                                        onChange={(e) => updateDriverSelection(selectedRace.id, pos, e.target.value)}
+                                      >
+                                        <option value="">Seleccionar piloto...</option>
+                                        {drivers.map((driver) => (
+                                          <option key={driver.id} value={driver.id}>
+                                            {driver.name} ({driver.team})
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div className="col-span-2">
+                                      <div className="flex h-8 w-full rounded-md border border-input bg-muted px-2 py-1 text-sm text-muted-foreground">
+                                        #{rr.number || "-"}
+                                      </div>
+                                    </div>
+                                    <div className="col-span-2">
+                                      <div className="flex h-8 w-full rounded-md border border-input bg-muted px-2 py-1 text-sm text-muted-foreground truncate">
+                                        {rr.team || "-"}
+                                      </div>
+                                    </div>
+                                    <div className="col-span-1 text-right text-sm font-semibold">{getPointsForPosition(pos)}</div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+
                           </div>
                         </div>
-                        <div className="p-3">
-                          <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground mb-2">
-                            <div className="col-span-1">Pos</div>
-                            <div className="col-span-5">Piloto</div>
-                            <div className="col-span-2">Número</div>
-                            <div className="col-span-3">Escudería</div>
-                            <div className="col-span-1 text-right">Pts</div>
-                          </div>
-                          <div className="space-y-2">
-                            {Array.from({ length: 20 }, (_, i) => i + 1).map((pos) => {
-                              const rr = race.results.find(r => r.position === pos) || { position: pos, driver: "", number: "", team: "" }
-                              return (
-                                <div key={pos} className="grid grid-cols-12 gap-2 items-center">
-                                  <div className="col-span-1 text-sm">{pos}</div>
-                                  <div className="col-span-5">
-                                    <Input
-                                      placeholder="Nombre y apellido"
-                                      value={rr.driver}
-                                      onChange={(e) => updateRaceField(race.id, pos, "driver", e.target.value)}
-                                      list={`drivers-list-${race.id}`}
-                                    />
-                                  </div>
-                                  <div className="col-span-2">
-                                    <Input
-                                      placeholder="#"
-                                      value={rr.number || ""}
-                                      onChange={(e) => updateRaceField(race.id, pos, "number", e.target.value)}
-                                    />
-                                  </div>
-                                  <div className="col-span-3">
-                                    <Input
-                                      placeholder="Escudería"
-                                      value={rr.team || ""}
-                                      onChange={(e) => updateRaceField(race.id, pos, "team", e.target.value)}
-                                      list={`teams-list-${race.id}`}
-                                    />
-                                  </div>
-                                  <div className="col-span-1 text-right text-sm font-semibold">{getPointsForPosition(pos)}</div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                          {/* datalist opciones (pilotos/teams manuales) */}
-                          <datalist id={`drivers-list-${race.id}`}>
-                            {drivers.map((d) => (
-                              <option key={d.id} value={d.name}>{`#${d.number} · ${d.team}`}</option>
-                            ))}
-                          </datalist>
-                          <datalist id={`teams-list-${race.id}`}>
-                            {teams.map((t: any) => (
-                              <option key={t.id} value={t.name}>{t.country}</option>
-                            ))}
-                          </datalist>
-                        </div>
-                      </div>
-                    ))
+                      )
+                    })()
                   )}
                 </div>
               </CardContent>

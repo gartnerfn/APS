@@ -5,54 +5,30 @@ import { Button } from "@/components/ui/button"
 import { Calendar, MapPin } from "lucide-react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
-
-const defaultRaces = [{
-    date: "OCT 3–5",
-    country: "SINGAPUR",
-    circuit: "Marina Bay Street Circuit",
-    status: "PRÓXIMO",
-    image: "/singapur.jpg",
-  },
-  {
-    date: "OCT 17–19",
-    country: "ESTADOS UNIDOS",
-    circuit: "Circuito de las Américas",
-    status: "PRÓXIMO",
-    image: "/estados-unidos.jpg",
-  },
-  {
-    date: "OCT 24–26",
-    country: "MÉXICO",
-    circuit: "Autódromo Hermanos Rodríguez",
-    status: "PRÓXIMO",
-    image: "/mexico.jpg",
-  }
-];
+import { getAllRaces, initializeDefaultRaces, type F1Race } from "@/lib/default-races"
 
 export function CalendarSection() {
-  const [events, setEvents] = useState(defaultRaces)
+  const [events, setEvents] = useState<F1Race[]>([])
 
   useEffect(() => {
-    // Cargar eventos desde localStorage (cargados por el admin)
-    const storedEvents = localStorage.getItem('f1_events_manual')
-    if (storedEvents) {
-      const adminEvents = JSON.parse(storedEvents)
-      // Convertir eventos del admin al formato esperado
-      const formattedEvents = adminEvents.map((event: any) => ({
-        date: new Date(event.date).toLocaleDateString('es-ES', { 
-          month: 'short', 
-          day: 'numeric' 
-        }).toUpperCase(),
-        country: event.country.toUpperCase(),
-        circuit: event.circuit,
-        status: "PRÓXIMO",
-        image: event.image || "/placeholder.svg",
-        name: event.name
-      }))
-      
-      // Combinar eventos por defecto con eventos del admin
-      setEvents([...formattedEvents, ...defaultRaces])
+    // Inicializar carreras por defecto
+    initializeDefaultRaces()
+    
+    // Cargar todas las carreras (por defecto + del admin)
+    const loadRaces = () => {
+      const allRaces = getAllRaces()
+      setEvents(allRaces)
     }
+    
+    loadRaces()
+    
+    // Escuchar cambios en las carreras del admin
+    const handleRacesUpdate = () => {
+      loadRaces()
+    }
+    
+    window.addEventListener('f1-events-updated', handleRacesUpdate)
+    return () => window.removeEventListener('f1-events-updated', handleRacesUpdate)
   }, [])
   return (
     <section id="calendario" className="space-y-6">
@@ -68,7 +44,7 @@ export function CalendarSection() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {events.map((race: any, index: number) => (
+        {events.slice(0, 6).map((race, index) => (
           <Card
             key={index}
             className="overflow-hidden bg-card border-border group hover:border-primary transition-colors"

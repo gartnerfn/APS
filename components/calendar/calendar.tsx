@@ -6,15 +6,19 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { EventModal } from "./event-modal"
 import { EventList } from "./event-list"
-import { toPng } from 'html-to-image';
+import { toPng } from 'html-to-image'
+import { getAllRaces, initializeDefaultRaces } from "@/lib/default-races"
+import { getAllInspections, formatInspectionAsCalendarEvent } from "@/lib/default-inspections"
 
 export interface CalendarEvent {
   id: string
   title: string
   date: string
-  type: "race" | "practice" | "qualifying" | "custom"
+  type: "race" | "practice" | "qualifying" | "custom" | "inspection"
   description?: string
   time?: string
+  status?: string
+  inspector?: string
 }
 
 const MONTHS = [
@@ -43,15 +47,53 @@ export function Calendar() {
 
   // Cargar eventos desde localStorage
   useEffect(() => {
-    const stored = localStorage.getItem("f1-calendar-events")
-    if (stored) {
-      setEvents(JSON.parse(stored))
+    const loadEvents = () => {
+      let allEvents: CalendarEvent[] = []
+      
+      // Inicializar carreras por defecto
+      initializeDefaultRaces()
+      
+      // Cargar eventos del calendario (creados en el calendario)
+      const stored = localStorage.getItem("f1-calendar-events")
+      if (stored) {
+        allEvents = JSON.parse(stored)
+      }
+      
+      // Cargar carreras por defecto (estaticas del calendario F1 2025)
+      const defaultRaces = getAllRaces()
+      const formattedDefaultRaces: CalendarEvent[] = defaultRaces.map((race) => ({
+        id: `default-${race.id}`,
+        title: race.name,
+        date: race.fullDate,
+        type: "race" as const,
+        description: `${race.circuit} - ${race.country}`,
+        time: "TBD"
+      }))
+      
+      // Cargar inspecciones/controles (creadas por admin)
+      const inspections = getAllInspections()
+      const formattedInspections: CalendarEvent[] = inspections.map(formatInspectionAsCalendarEvent)
+      
+      allEvents = [...allEvents, ...formattedDefaultRaces, ...formattedInspections]
+      
+      setEvents(allEvents)
     }
+    
+    loadEvents()
+    
+    // Escuchar cambios en los eventos del admin
+    const handleStorageChange = () => {
+      loadEvents()
+    }
+    
+    window.addEventListener('f1-events-updated', handleStorageChange)
+    return () => window.removeEventListener('f1-events-updated', handleStorageChange)
   }, [])
 
-  // Guardar eventos en localStorage
+  // Guardar eventos en localStorage (solo eventos del calendario, no del admin ni por defecto)
   useEffect(() => {
-    localStorage.setItem("f1-calendar-events", JSON.stringify(events))
+    const calendarEvents = events.filter(event => !event.id.startsWith('admin-') && !event.id.startsWith('default-'))
+    localStorage.setItem("f1-calendar-events", JSON.stringify(calendarEvents))
   }, [events])
 
   const getDaysInMonth = (date: Date) => {
@@ -90,10 +132,20 @@ export function Calendar() {
   }
 
   const handleDeleteEvent = (id: string) => {
+    // No permitir eliminar eventos del admin o carreras por defecto
+    if (id.startsWith('admin-') || id.startsWith('default-')) {
+      alert('Las carreras oficiales de F1 no se pueden eliminar.')
+      return
+    }
     setEvents(events.filter((e) => e.id !== id))
   }
 
   const handleEditEvent = (event: CalendarEvent) => {
+    // No permitir editar eventos del admin o carreras por defecto
+    if (event.id.startsWith('admin-') || event.id.startsWith('default-')) {
+      alert('Las carreras oficiales de F1 no se pueden editar.')
+      return
+    }
     setEditingEvent(event)
     setSelectedDate(event.date)
     setShowModal(true)

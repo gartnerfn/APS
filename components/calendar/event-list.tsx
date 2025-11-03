@@ -28,20 +28,25 @@ export function EventList({ events, onEdit, onDelete, getEventColor }: EventList
             <div className="flex-1">
               <h4 className="font-semibold">{event.title}</h4>
               {event.time && <p className="text-xs opacity-75">🕐 {event.time}</p>}
+              {(event.id.startsWith('admin-') || event.id.startsWith('default-')) && (
+                <p className="text-xs opacity-60 font-medium">🏁 Carrera oficial F1</p>
+              )}
             </div>
-            <div className="flex gap-1">
-              <Button size="sm" variant="ghost" onClick={() => onEdit(event)} className="p-1 h-auto">
-                <Edit2 className="w-4 h-4" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => onDelete(event.id)}
-                className="p-1 h-auto text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
+            {!event.id.startsWith('admin-') && !event.id.startsWith('default-') && (
+              <div className="flex gap-1">
+                <Button size="sm" variant="ghost" onClick={() => onEdit(event)} className="p-1 h-auto">
+                  <Edit2 className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onDelete(event.id)}
+                  className="p-1 h-auto text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
           </div>
           {event.description && <p className="text-xs opacity-75">{event.description}</p>}
         </div>
