@@ -14,8 +14,8 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { ArrowLeft, Trash2, Edit3, Plus, UserPlus, Upload, FileText, Users, Trophy, Database, Wrench, Share2, Play, Check, AlertTriangle, Ban } from "lucide-react"
 import { getAllTeams, initializeDefaultTeams, type F1Team } from "@/lib/default-teams"
-import { getTeamIdFromName } from "@/lib/default-drivers"
-import { sendReclamoStatusChangeMessage, getAllTeamUsers, sendInspectionScheduledMessage, sendInspectionProgressMessage, sendInspectionResultMessage  } from "@/lib/messaging-utils"
+import { getTeamIdFromName, getAllDrivers, initializeDefaultDrivers } from "@/lib/default-drivers"
+import { sendReclamoStatusChangeMessage, getAllTeamUsers, sendInspectionScheduledMessage, sendInspectionProgressMessage, sendInspectionResultMessage } from "@/lib/messaging-utils"
 
 export default function AdminPage() {
   const { user, getAllUsers, updateUser, deleteUser, createUser } = useAuth()
@@ -59,6 +59,22 @@ export default function AdminPage() {
   const [teams, setTeams] = useState<any[]>([])
   const [drivers, setDrivers] = useState<any[]>([])
   const [fiaData, setFiaData] = useState<any[]>([])
+  // Resultados de carreras
+  type RaceDriverResult = {
+    position: number
+    driver: string
+    number?: string
+    team?: string
+  }
+  type Race = {
+    id: string
+    name: string
+    date?: string
+    results: RaceDriverResult[]
+    createdAt: string
+  }
+  const RACES_KEY = "f1_races_results"
+  const [races, setRaces] = useState<Race[]>([])
 
   // Inspecciones (controles técnicos y de neumáticos)
   type InspectionStatus = "programado" | "en_progreso" | "completado" | "observacion" | "sancion"
@@ -168,12 +184,13 @@ export default function AdminPage() {
     console.log("User is admin, loading data")
     setUsers(getAllUsers())
     
-    // Inicializar escuderías por defecto
+  // Inicializar escuderías y pilotos por defecto
     initializeDefaultTeams()
+  initializeDefaultDrivers()
     
-    // Cargar datos manuales desde localStorage
+  // Cargar datos manuales desde localStorage
     const storedEvents = localStorage.getItem('f1_events_manual')
-    const storedDrivers = localStorage.getItem('f1_drivers_manual')
+    // Drivers (defaults + manuales + ediciones)
     const storedFiaData = localStorage.getItem('f1_fia_manual')
     
     // Obtener todas las escuderías (por defecto + manuales)
@@ -181,7 +198,7 @@ export default function AdminPage() {
     
     if (storedEvents) setEvents(JSON.parse(storedEvents))
     setTeams(allTeams) // Usar todas las escuderías
-    if (storedDrivers) setDrivers(JSON.parse(storedDrivers))
+    setDrivers(getAllDrivers())
     if (storedFiaData) setFiaData(JSON.parse(storedFiaData))
 
     // Cargar inspecciones
@@ -192,6 +209,23 @@ export default function AdminPage() {
         setInspections(parsed.sort((a,b)=> (b.createdAt > a.createdAt ? 1 : -1)))
       } catch {}
     }
+
+    // Cargar carreras/resultados
+    try {
+      const storedRaces = localStorage.getItem(RACES_KEY)
+      if (storedRaces) {
+        const parsed: Race[] = JSON.parse(storedRaces)
+        // normalizar: asegurar 20 posiciones
+        const normalized = parsed.map(r => ({
+          ...r,
+          results: Array.from({ length: 20 }, (_, i) => {
+            const existing = r.results?.find(rr => rr.position === i + 1)
+            return existing || { position: i + 1, driver: "", number: "", team: "" }
+          })
+        }))
+        setRaces(normalized)
+      }
+    } catch {}
     
     // Cargar las fechas de última actualización desde localStorage
     const teamsData = localStorage.getItem('f1_teams_data')
@@ -399,10 +433,12 @@ export default function AdminPage() {
       lastUpdated: new Date().toISOString()
     }
 
-    const updatedDrivers = [...drivers, newDriver]
-    setDrivers(updatedDrivers)
-    localStorage.setItem('f1_drivers_manual', JSON.stringify(updatedDrivers))
-
+    // Guardar como manual (para que getAllDrivers lo combine con defaults)
+    const storedManual = localStorage.getItem('f1_drivers_manual')
+    const manualList = storedManual ? JSON.parse(storedManual) : []
+    const updatedManual = [newDriver, ...manualList]
+    localStorage.setItem('f1_drivers_manual', JSON.stringify(updatedManual))
+    setDrivers(getAllDrivers())
     // Limpiar formulario
     setDriverName("")
     setDriverTeam("")
@@ -473,9 +509,13 @@ export default function AdminPage() {
 
   const handleDeleteDriver = (id: string) => {
     if (!confirm("¿Eliminar este piloto?")) return
-    const updatedDrivers = drivers.filter(d => d.id !== id)
-    setDrivers(updatedDrivers)
-    localStorage.setItem('f1_drivers_manual', JSON.stringify(updatedDrivers))
+    // Solo eliminar de los manuales
+    const storedManual = localStorage.getItem('f1_drivers_manual')
+    const manualList = storedManual ? JSON.parse(storedManual) : []
+    const nextManual = manualList.filter((d: any) => d.id !== id)
+    localStorage.setItem('f1_drivers_manual', JSON.stringify(nextManual))
+    setDrivers(getAllDrivers())
+    try { window.dispatchEvent(new Event('f1-drivers-updated')) } catch {}
   }
 
   const handleDeleteFiaData = (id: string) => {
@@ -483,6 +523,65 @@ export default function AdminPage() {
     const updatedFiaData = fiaData.filter(f => f.id !== id)
     setFiaData(updatedFiaData)
     localStorage.setItem('f1_fia_manual', JSON.stringify(updatedFiaData))
+  }
+
+  // ---------- Gestión de Resultados de Carreras ----------
+  const [newRaceName, setNewRaceName] = useState("")
+  const [newRaceDate, setNewRaceDate] = useState("")
+
+  const getPointsForPosition = (pos: number) => {
+    const table = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+    return table[pos - 1] || 0
+  }
+
+  const saveRacesToStorage = (next: Race[]) => {
+    setRaces(next)
+    try { localStorage.setItem(RACES_KEY, JSON.stringify(next)) } catch {}
+    try { window.dispatchEvent(new Event("f1-races-updated")) } catch {}
+  }
+
+  const handleCreateRace = () => {
+    if (!newRaceName.trim()) {
+      alert("Ingresá el nombre de la carrera")
+      return
+    }
+    const race: Race = {
+      id: Date.now().toString(),
+      name: newRaceName.trim(),
+      date: newRaceDate || undefined,
+      results: Array.from({ length: 20 }, (_, i) => ({ position: i + 1, driver: "", number: "", team: "" })),
+      createdAt: new Date().toISOString()
+    }
+    const next = [race, ...races]
+    saveRacesToStorage(next)
+    setNewRaceName("")
+    setNewRaceDate("")
+  }
+
+  const handleDeleteRace = (id: string) => {
+    if (!confirm("¿Eliminar esta carrera y sus resultados?")) return
+    const next = races.filter(r => r.id !== id)
+    saveRacesToStorage(next)
+  }
+
+  const updateRaceField = (raceId: string, position: number, field: keyof RaceDriverResult, value: string) => {
+    const next = races.map(r => {
+      if (r.id !== raceId) return r
+      const results = r.results.map(rr => rr.position === position ? { ...rr, [field]: value } : rr)
+      return { ...r, results }
+    })
+    setRaces(next) // no persistir en cada tecla; usuario guardará manualmente
+  }
+
+  const handleSaveRace = (raceId: string) => {
+    // limpiar espacios y posiciones sin driver
+    const next = races.map(r => {
+      if (r.id !== raceId) return r
+      const results = r.results.map(rr => ({ ...rr, driver: rr.driver.trim() }))
+      return { ...r, results }
+    })
+    saveRacesToStorage(next)
+    alert("Resultados guardados")
   }
 
   // Funciones para cargar información
@@ -1493,6 +1592,112 @@ export default function AdminPage() {
                         <Button variant="destructive" size="sm" onClick={() => handleDeleteDriver(driver.id)}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Resultados de Carreras */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5" />
+                  Resultados de Carreras
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Crear carrera */}
+                <div className="border rounded-lg p-4 bg-muted/50">
+                  <h4 className="font-semibold mb-3">Nueva Carrera</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <Label htmlFor="raceName">Nombre</Label>
+                      <Input id="raceName" value={newRaceName} onChange={(e) => setNewRaceName(e.target.value)} placeholder="Ej: Bahrain Grand Prix" />
+                    </div>
+                    <div>
+                      <Label htmlFor="raceDate">Fecha</Label>
+                      <Input id="raceDate" type="date" value={newRaceDate} onChange={(e) => setNewRaceDate(e.target.value)} />
+                    </div>
+                    <div className="flex items-end">
+                      <Button onClick={handleCreateRace} className="w-full"><Plus className="h-4 w-4 mr-2"/>Crear Carrera</Button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">Completá hasta el puesto 20. Los puntos se calculan automáticamente (25–18–15–12–10–8–6–4–2–1) solo para el Top 10.</p>
+                </div>
+
+                {/* Lista de carreras */}
+                <div className="space-y-4 max-h-[36rem] overflow-y-auto pr-1">
+                  {races.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No hay carreras. Creá una y cargá el Top 10.</p>
+                  ) : (
+                    races.map((race) => (
+                      <div key={race.id} className="border rounded-lg">
+                        <div className="flex items-center justify-between p-3 border-b">
+                          <div>
+                            <p className="font-semibold text-sm">{race.name}</p>
+                            {race.date && <p className="text-xs text-muted-foreground">{race.date}</p>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button size="sm" variant="secondary" onClick={() => handleSaveRace(race.id)}>Guardar Resultados</Button>
+                            <Button size="sm" variant="destructive" onClick={() => handleDeleteRace(race.id)}><Trash2 className="h-3 w-3"/></Button>
+                          </div>
+                        </div>
+                        <div className="p-3">
+                          <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground mb-2">
+                            <div className="col-span-1">Pos</div>
+                            <div className="col-span-5">Piloto</div>
+                            <div className="col-span-2">Número</div>
+                            <div className="col-span-3">Escudería</div>
+                            <div className="col-span-1 text-right">Pts</div>
+                          </div>
+                          <div className="space-y-2">
+                            {Array.from({ length: 20 }, (_, i) => i + 1).map((pos) => {
+                              const rr = race.results.find(r => r.position === pos) || { position: pos, driver: "", number: "", team: "" }
+                              return (
+                                <div key={pos} className="grid grid-cols-12 gap-2 items-center">
+                                  <div className="col-span-1 text-sm">{pos}</div>
+                                  <div className="col-span-5">
+                                    <Input
+                                      placeholder="Nombre y apellido"
+                                      value={rr.driver}
+                                      onChange={(e) => updateRaceField(race.id, pos, "driver", e.target.value)}
+                                      list={`drivers-list-${race.id}`}
+                                    />
+                                  </div>
+                                  <div className="col-span-2">
+                                    <Input
+                                      placeholder="#"
+                                      value={rr.number || ""}
+                                      onChange={(e) => updateRaceField(race.id, pos, "number", e.target.value)}
+                                    />
+                                  </div>
+                                  <div className="col-span-3">
+                                    <Input
+                                      placeholder="Escudería"
+                                      value={rr.team || ""}
+                                      onChange={(e) => updateRaceField(race.id, pos, "team", e.target.value)}
+                                      list={`teams-list-${race.id}`}
+                                    />
+                                  </div>
+                                  <div className="col-span-1 text-right text-sm font-semibold">{getPointsForPosition(pos)}</div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          {/* datalist opciones (pilotos/teams manuales) */}
+                          <datalist id={`drivers-list-${race.id}`}>
+                            {drivers.map((d) => (
+                              <option key={d.id} value={d.name}>{`#${d.number} · ${d.team}`}</option>
+                            ))}
+                          </datalist>
+                          <datalist id={`teams-list-${race.id}`}>
+                            {teams.map((t: any) => (
+                              <option key={t.id} value={t.name}>{t.country}</option>
+                            ))}
+                          </datalist>
+                        </div>
                       </div>
                     ))
                   )}

@@ -19,21 +19,47 @@ export function DriversSection() {
     // Inicializar pilotos por defecto
     initializeDefaultDrivers()
     
-    // Cargar todos los pilotos (por defecto + ediciones)
+    const pointsFromRaces = (): Map<string, number> => {
+      const racesStr = localStorage.getItem('f1_races_results')
+      const map = new Map<string, number>()
+      if (!racesStr) return map
+      try {
+        const races = JSON.parse(racesStr) as Array<{ results?: Array<{ position: number; driver: string; number?: string }> }>
+        const table = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+        for (const race of races || []) {
+          for (const rr of race.results || []) {
+            if (!rr?.driver) continue
+            const key = `${rr.driver}#${String(rr.number ?? "")}`
+            const pts = table[rr.position - 1] || 0
+            map.set(key, (map.get(key) || 0) + pts)
+          }
+        }
+      } catch {}
+      return map
+    }
+
+    // Cargar todos los pilotos (por defecto + manuales + ediciones) y aplicar puntos desde resultados
     const loadDrivers = () => {
       const drivers = getAllDrivers()
-      setAllDrivers(drivers)
+      const ptsMap = pointsFromRaces()
+      const withPoints = drivers.map(d => ({
+        ...d,
+        points: ptsMap.get(`${d.name}#${d.number}`) || 0,
+      }))
+      setAllDrivers(withPoints)
     }
     
     loadDrivers()
 
-    // Listener para actualizaciones de pilotos
-    const handleDriversUpdate = () => {
-      loadDrivers()
-    }
-
+    // Listener para actualizaciones de pilotos y carreras
+    const handleDriversUpdate = () => loadDrivers()
+    const handleRacesUpdate = () => loadDrivers()
     window.addEventListener('f1-drivers-updated', handleDriversUpdate)
-    return () => window.removeEventListener('f1-drivers-updated', handleDriversUpdate)
+    window.addEventListener('f1-races-updated', handleRacesUpdate)
+    return () => {
+      window.removeEventListener('f1-drivers-updated', handleDriversUpdate)
+      window.removeEventListener('f1-races-updated', handleRacesUpdate)
+    }
   }, [])
 
   const handlePrev = () => {

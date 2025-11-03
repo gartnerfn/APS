@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Flag, Trash2, ArrowLeft, Crown, Users, User as UserIcon } from "lucide-react"
 import Link from "next/link"
+import { PerRacePointsSection } from "@/components/per-race-points-section"
 
 export default function ProfilePage() {
   const { user, updateProfile, deleteAccount } = useAuth()
@@ -141,6 +142,12 @@ export default function ProfilePage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Puntos por carrera (sección de usuario) */}
+          <div className="space-y-3">
+            <h2 className="text-xl font-semibold">Competencia</h2>
+            <PerRacePointsSection />
+          </div>
         </div>
       </div>
     </div>
