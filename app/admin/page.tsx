@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { ArrowLeft, Trash2, Edit3, Plus, UserPlus, Upload, FileText, Users, Trophy, Database } from "lucide-react"
 import { getAllTeams, initializeDefaultTeams, type F1Team } from "@/lib/default-teams"
+import { getTeamIdFromName } from "@/lib/default-drivers"
 import { sendReclamoStatusChangeMessage } from "@/lib/messaging-utils"
 
 export default function AdminPage() {
@@ -78,6 +79,7 @@ export default function AdminPage() {
   const [driverNationality, setDriverNationality] = useState("")
   const [driverNumber, setDriverNumber] = useState("")
   const [driverImage, setDriverImage] = useState("")
+  const [driverRoleInput, setDriverRoleInput] = useState<"titular" | "suplente" | "reserva">("titular")
 
   // Estados para formularios de FIA
   const [fiaTitle, setFiaTitle] = useState("")
@@ -329,28 +331,44 @@ export default function AdminPage() {
       return
     }
 
+    // Buscar teamId usando la función de mapeo
+    const teamId = getTeamIdFromName(driverTeam.trim())
+
     const newDriver = {
       id: Date.now().toString(),
       name: driverName.trim(),
+      number: String(driverNumber),
       team: driverTeam.trim(),
+      teamId,
       nationality: driverNationality.trim(),
-      number: parseInt(driverNumber),
-      image: driverImage || "/placeholder-user.jpg",
-      created: new Date().toLocaleString()
+      country: '',
+      image: driverImage || '/placeholder-user.jpg',
+      points: 0,
+      status: driverRoleInput,
+      role: undefined,
+      biography: undefined,
+      achievements: undefined,
+      socialMedia: undefined,
+      created: new Date().toISOString(),
+      lastUpdated: new Date().toISOString()
     }
 
     const updatedDrivers = [...drivers, newDriver]
     setDrivers(updatedDrivers)
     localStorage.setItem('f1_drivers_manual', JSON.stringify(updatedDrivers))
-    
+
     // Limpiar formulario
     setDriverName("")
     setDriverTeam("")
     setDriverNationality("")
     setDriverNumber("")
     setDriverImage("")
+    setDriverRoleInput("titular")
     setShowDriverForm(false)
-    
+
+    // Disparar evento para que otras partes (drivers-section, escuderia) recarguen
+    try { window.dispatchEvent(new Event('f1-drivers-updated')) } catch {}
+
     alert("Piloto creado exitosamente")
   }
 
@@ -1074,6 +1092,19 @@ export default function AdminPage() {
                           <option value="Chinese">Chino</option>
                           <option value="Brazilian">Brasileño</option>
                           <option value="Italian">Italiano</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label htmlFor="driverRole">Rol</Label>
+                        <select
+                          id="driverRole"
+                          value={driverRoleInput}
+                          onChange={(e) => setDriverRoleInput(e.target.value as any)}
+                          className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                        >
+                          <option value="titular">Titular</option>
+                          <option value="suplente">Suplente</option>
+                          <option value="reserva">Reserva</option>
                         </select>
                       </div>
                       <div>
