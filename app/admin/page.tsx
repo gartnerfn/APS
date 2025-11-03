@@ -1208,8 +1208,7 @@ export default function AdminPage() {
                           const detail = prompt("Detalle de observación")
                           const now = new Date().toISOString()
                           const updated = inspections.map(x => x.id===i.id ? ({...x, status: "observacion" as InspectionStatus, resultsSummary: detail || x.resultsSummary, performedAt: now, updatedAt: now}) : x)
-                          setInspections(updated)
-                          localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(updated))
+                          updateInspections(updated)
                           if (user) sendInspectionResultMessage({...i, resultsSummary: detail, status: "observacion", performedAt: now} as any, user as any, i.teamUserId)
                         }}>
                           <AlertTriangle className="h-3 w-3 mr-1"/> Observación
@@ -1218,16 +1217,14 @@ export default function AdminPage() {
                           const detail = prompt("Detalle de sanción aplicada")
                           const now = new Date().toISOString()
                           const updated = inspections.map(x => x.id===i.id ? ({...x, status: "sancion" as InspectionStatus, resultsSummary: detail || x.resultsSummary, performedAt: now, updatedAt: now}) : x)
-                          setInspections(updated)
-                          localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(updated))
+                          updateInspections(updated)
                           if (user) sendInspectionResultMessage({...i, resultsSummary: detail, status: "sancion", performedAt: now} as any, user as any, i.teamUserId)
                         }}>
                           <Ban className="h-3 w-3 mr-1"/> Sanción
                         </Button>
                         <Button size="sm" variant={i.sharedWithTeam ? "secondary" : "outline"} onClick={()=>{
                           const updated = inspections.map(x => x.id===i.id ? ({...x, sharedWithTeam: !x.sharedWithTeam, updatedAt: new Date().toISOString()}) : x)
-                          setInspections(updated)
-                          localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(updated))
+                          updateInspections(updated)
                           if (!i.sharedWithTeam && user) {
                             sendInspectionResultMessage(i as any, user as any, i.teamUserId)
                             toast({ title: "Resultados compartidos", description: `${i.teamName}` })
@@ -1238,8 +1235,7 @@ export default function AdminPage() {
                         <Button size="sm" variant="destructive" onClick={()=>{
                           if (!confirm("¿Eliminar control?")) return
                           const updated = inspections.filter(x => x.id !== i.id)
-                          setInspections(updated)
-                          localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(updated))
+                          updateInspections(updated)
                         }}>
                           <Trash2 className="h-3 w-3"/>
                         </Button>
