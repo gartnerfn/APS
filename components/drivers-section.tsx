@@ -2,212 +2,75 @@
 
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useState, useEffect } from "react";
-
-const drivers = [
-  {
-    name: "Max Verstappen",
-    number: "1",
-    team: "Red Bull Racing",
-    country: "🇳🇱",
-    image: "/max-verstappen.png",
-    points: 0,  // inicial listo para actualizar
-  },
-  {
-    name: "Yuki Tsunoda",
-    number: "22",
-    team: "Racing Bulls",
-    country: "🇯🇵",
-    image: "/yuki-tsunoda.png",
-    points: 0,
-  },
-  {
-    name: "Charles Leclerc",
-    number: "16",
-    team: "Ferrari",
-    country: "🇲🇨",
-    image: "/charles-leclerc.png",
-    points: 0,
-  },
-  {
-    name: "Lewis Hamilton",
-    number: "44",
-    team: "Ferrari",
-    country: "🇬🇧",
-    image: "/lewis-hamilton.png",
-    points: 0,
-  },
-  {
-    name: "George Russell",
-    number: "63",
-    team: "Mercedes",
-    country: "🇬🇧",
-    image: "/george-russell.png",
-    points: 0,
-  },
-  {
-    name: "Andrea Kimi Antonelli",
-    number: "12",
-    team: "Mercedes",
-    country: "🇮🇹",
-    image: "/kimi-antonelli.png",
-    points: 0,
-  },
-  {
-    name: "Oscar Piastri",
-    number: "81",
-    team: "McLaren",
-    country: "🇦🇺",
-    image: "/oscar-piastri.png",
-    points: 0,
-  },
-  {
-    name: "Lando Norris",
-    number: "4",
-    team: "McLaren",
-    country: "🇬🇧",
-    image: "/lando-norris.png",
-    points: 0,
-  },
-  {
-    name: "Fernando Alonso",
-    number: "14",
-    team: "Aston Martin",
-    country: "🇪🇸",
-    image: "/fernando-alonso.png",
-    points: 0,
-  },
-  {
-    name: "Lance Stroll",
-    number: "18",
-    team: "Aston Martin",
-    country: "🇨🇦",
-    image: "/lance-stroll.png",
-    points: 0,
-  },
-  {
-    name: "Pierre Gasly",
-    number: "10",
-    team: "Alpine",
-    country: "🇫🇷",
-    image: "/pierre-gasly.png",
-    points: 0,
-  },
-  {
-    name: "Franco Colapinto",
-    number: "43",
-    team: "Alpine",
-    country: "🇦🇷",
-    image: "/franco-colapinto.png",
-    points: 0,
-  },
-  {
-    name: "Alex Albon",
-    number: "23",
-    team: "Williams",
-    country: "🇹🇭", // doble nacionalidad posible
-    image: "/alexander-albon.png",
-    points: 0,
-  },
-  {
-    name: "Carlos Sainz",
-    number: "55",
-    team: "Williams",
-    country: "🇪🇸",
-    image: "/carlos-sainz.png",
-    points: 0,
-  },
-  {
-    name: "Nico Hülkenberg",
-    number: "27",
-    team: "Sauber",
-    country: "🇩🇪",
-    image: "/nico-hulkenberg.png",
-    points: 0,
-  },
-  {
-    name: "Gabriel Bortoleto",
-    number: "5",
-    team: "Sauber",
-    country: "🇧🇷",
-    image: "/gabriel-bortoleto.png",
-    points: 0,
-  },
-  {
-    name: "Oliver Bearman",
-    number: "87",
-    team: "Haas",
-    country: "🇬🇧",
-    image: "/oliver-bearman.png",
-    points: 0,
-  },
-  {
-    name: "Esteban Ocon",
-    number: "31",
-    team: "Haas",
-    country: "🇫🇷",
-    image: "/esteban-ocon.png",
-    points: 0,
-  }
-];
+import { useState, useEffect } from "react"
+import { getAllDrivers, initializeDefaultDrivers, F1Driver } from "@/lib/default-drivers"
+import { DriverModal } from "@/components/driver-modal"
 
 export function DriversSection() {
   const [startIndex, setStartIndex] = useState(0)
-  const [allDrivers, setAllDrivers] = useState(drivers)
+  const [allDrivers, setAllDrivers] = useState<F1Driver[]>([])
+  const [selectedDriver, setSelectedDriver] = useState<F1Driver | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const visibleCount = 6
 
   useEffect(() => {
-    // Cargar pilotos desde localStorage (cargados por el admin)
-    const storedDrivers = localStorage.getItem('f1_drivers_manual')
-    if (storedDrivers) {
-      const adminDrivers = JSON.parse(storedDrivers)
-      // Convertir pilotos del admin al formato esperado
-      const formattedDrivers = adminDrivers.map((driver: any) => ({
-        name: driver.name,
-        number: driver.number.toString(),
-        team: driver.team,
-        country: getCountryFlag(driver.nationality),
-        image: driver.image || "/placeholder-user.jpg", // Usar la imagen cargada o una por defecto
-        points: 0,
-      }))
-      
-      // Combinar pilotos por defecto con pilotos del admin
-      setAllDrivers([...formattedDrivers, ...drivers])
+    // Inicializar pilotos por defecto
+    initializeDefaultDrivers()
+    
+    // Cargar todos los pilotos (por defecto + ediciones)
+    const loadDrivers = () => {
+      const drivers = getAllDrivers()
+      setAllDrivers(drivers)
     }
-  }, [])
+    
+    loadDrivers()
 
-  // Función helper para obtener banderas por nacionalidad
-  const getCountryFlag = (nationality: string) => {
-    const flags: { [key: string]: string } = {
-      'Dutch': '🇳🇱',
-      'Japanese': '🇯🇵', 
-      'Monégasque': '🇲🇨',
-      'British': '🇬🇧',
-      'Spanish': '🇪🇸',
-      'Mexican': '🇲🇽',
-      'Australian': '🇦🇺',
-      'Canadian': '🇨🇦',
-      'French': '🇫🇷',
-      'Argentinian': '🇦🇷',
-      'Thai': '🇹🇭',
-      'German': '🇩🇪',
-      'Finnish': '🇫🇮',
-      'Danish': '🇩🇰'
+    // Listener para actualizaciones de pilotos
+    const handleDriversUpdate = () => {
+      loadDrivers()
     }
-    return flags[nationality] || '🏁'
-  }
+
+    window.addEventListener('f1-drivers-updated', handleDriversUpdate)
+    return () => window.removeEventListener('f1-drivers-updated', handleDriversUpdate)
+  }, [])
 
   const handlePrev = () => {
     setStartIndex((prev) => Math.max(prev - visibleCount, 0))
   }
 
   const handleNext = () => {
-    setStartIndex((prev) => Math.min(prev + visibleCount, allDrivers.length - visibleCount))
+    const nonReserveCount = allDrivers.filter(d => d.status !== 'reserva').length
+    setStartIndex((prev) => Math.min(prev + visibleCount, nonReserveCount - visibleCount))
   }
 
-  const visibleDrivers = allDrivers.slice(startIndex, startIndex + visibleCount)
+  const handleDriverClick = (driver: F1Driver) => {
+    setSelectedDriver(driver)
+    setIsModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setSelectedDriver(null)
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'titular':
+        return 'bg-green-100 text-green-800'
+      case 'suplente':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'reserva':
+        return 'bg-blue-100 text-blue-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  // Mostrar solo pilotos que no sean 'reserva' en la vista principal
+  const nonReserveDrivers = allDrivers.filter(d => d.status !== 'reserva')
+  const visibleDrivers = nonReserveDrivers.slice(startIndex, startIndex + visibleCount)
 
   return (
     <section id="pilotos" className="space-y-6">
@@ -227,7 +90,7 @@ export function DriversSection() {
             variant="outline"
             size="icon"
             onClick={handleNext}
-            disabled={startIndex + visibleCount >= drivers.length}
+            disabled={startIndex + visibleCount >= nonReserveDrivers.length}
             className="disabled:opacity-50"
           >
             <ChevronRight className="h-4 w-4" />
@@ -238,8 +101,9 @@ export function DriversSection() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {visibleDrivers.map((driver, index) => (
           <Card
-            key={index}
-            className="overflow-hidden bg-card border-border group hover:border-primary transition-all hover:scale-105"
+            key={driver.id}
+            className="overflow-hidden bg-card border-border group hover:border-primary transition-all hover:scale-105 cursor-pointer"
+            onClick={() => handleDriverClick(driver)}
           >
             <div className="relative h-64 overflow-hidden bg-secondary">
               <img
@@ -253,17 +117,45 @@ export function DriversSection() {
                 </Badge>
               </div>
               <div className="absolute top-3 right-3 text-2xl">{driver.country}</div>
+              
+              {/* Indicador de estado */}
+              <div className="absolute bottom-3 left-3">
+                <Badge className={`text-xs ${getStatusColor(driver.status)}`}>
+                  {driver.status.toUpperCase()}
+                </Badge>
+              </div>
+              
+              {/* Overlay de hover */}
+              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div className="bg-white/90 backdrop-blur-sm rounded-full p-2">
+                  <Eye className="h-6 w-6 text-primary" />
+                </div>
+              </div>
             </div>
             <div className="p-4 space-y-2">
               <div className="text-4xl font-bold text-muted-foreground">#{driver.number}</div>
               <h3 className="text-lg font-bold tracking-tight text-foreground leading-tight">
                 {driver.name}
               </h3>
-              <div className="text-sm text-muted-foreground">{driver.points} puntos</div>
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-muted-foreground">{driver.points} puntos</div>
+                {driver.role && (
+                  <Badge variant="outline" className="text-xs">
+                    {driver.role}
+                  </Badge>
+                )}
+              </div>
             </div>
           </Card>
         ))}
       </div>
+
+      {/* Modal de detalles del piloto */}
+      <DriverModal 
+        driver={selectedDriver}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </section>
   )
 

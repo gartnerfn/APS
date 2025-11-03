@@ -10,12 +10,17 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
+import { getAllTeams, initializeDefaultTeams, type F1Team } from "@/lib/default-teams"
+import { sendReclamoCreatedMessage } from "@/lib/messaging-utils"
+import { FloatingChat } from "@/components/floating-chat"
 
 interface FiaClaim {
   id: string
   teamId: string
   teamName: string
+  userId: string // ID del usuario que creó el reclamo
   type: string
   reference?: string
   event?: string
@@ -33,6 +38,8 @@ export default function ReclamosPage() {
   const { user, isTeam, loading } = useAuth()
   const router = useRouter()
   const [claims, setClaims] = useState<FiaClaim[]>([])
+  const [teams, setTeams] = useState<F1Team[]>([])
+  const [selectedTeam, setSelectedTeam] = useState<string>("")
 
   // Form state
   const [type, setType] = useState("sancion_incorrecta")
@@ -53,12 +60,20 @@ export default function ReclamosPage() {
       router.push("/")
       return
     }
+
+    // Inicializar escuderías por defecto
+    initializeDefaultTeams()
+    
+    // Cargar todas las escuderías
+    const allTeams = getAllTeams()
+    setTeams(allTeams)
+
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
       try {
         const parsed = JSON.parse(stored)
         if (Array.isArray(parsed)) {
-          setClaims(parsed.filter((c: FiaClaim) => c.teamId === user.id))
+          setClaims(parsed) // Cargar todos los reclamos, no filtrar por usuario
         }
       } catch {}
     }
@@ -67,7 +82,7 @@ export default function ReclamosPage() {
       if (s) {
         try {
           const p = JSON.parse(s)
-          setClaims(p.filter((c: FiaClaim) => c.teamId === user.id))
+          setClaims(p) // Cargar todos los reclamos, el filtrado se hace en el render
         } catch {}
       }
     }
@@ -88,10 +103,21 @@ export default function ReclamosPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!selectedTeam) {
+      toast({ title: "Escudería requerida", description: "Selecciona la escudería que representas" })
+      return
+    }
     if (!description.trim()) {
       toast({ title: "Descripción requerida", description: "Agrega una descripción del reclamo" })
       return
     }
+
+    const selectedTeamData = teams.find(team => team.id === selectedTeam)
+    if (!selectedTeamData) {
+      toast({ title: "Error", description: "Escudería no encontrada" })
+      return
+    }
+
     setSubmitting(true)
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
@@ -99,8 +125,9 @@ export default function ReclamosPage() {
       const now = new Date().toISOString()
       const newClaim: FiaClaim = {
         id: Date.now().toString(),
-        teamId: user!.id,
-        teamName: user!.name,
+        teamId: selectedTeam,
+        teamName: selectedTeamData.name,
+        userId: user!.id,
         type,
         reference: reference.trim() || undefined,
         event: eventName.trim() || undefined,
@@ -113,8 +140,15 @@ export default function ReclamosPage() {
       }
       const updated = [newClaim, ...all]
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-      setClaims(updated.filter(c => c.teamId === user!.id))
+      setClaims(updated) // Actualizar con todos los reclamos
+      
+      // Enviar mensaje automático a administradores
+      if (user) {
+        sendReclamoCreatedMessage(newClaim, user)
+      }
+      
       resetForm()
+      // No limpiar selectedTeam para que el usuario pueda ver su reclamo enviado
       toast({ title: "Reclamo enviado", description: "Se notificó a la FIA para su revisión." })
       try { window.dispatchEvent(new Event("f1-fia-claims-updated")) } catch {}
     } catch (err) {
@@ -146,7 +180,30 @@ export default function ReclamosPage() {
               <CardTitle>Nuevo Reclamo</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              {teams.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No hay escuderías disponibles.</p>
+                  <p className="text-sm text-muted-foreground">Contacte al administrador para que agregue escuderías al sistema.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Selector de Escudería */}
+                  <div>
+                    <Label htmlFor="team">Escudería que representas *</Label>
+                    <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona la escudería que representas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teams.map((team) => (
+                          <SelectItem key={team.id} value={team.id}>
+                            {team.name} - {team.country}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="type">Tipo</Label>
@@ -181,22 +238,31 @@ export default function ReclamosPage() {
                   <Button type="submit" disabled={submitting}>{submitting ? "Enviando..." : "Enviar Reclamo"}</Button>
                   <Button type="button" variant="outline" onClick={resetForm}>Limpiar</Button>
                 </div>
-              </form>
+                </form>
+              )}
             </CardContent>
           </Card>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">Mis Reclamos</h2>
-          {claims.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aún no presentaste reclamos.</p>
+          <h2 className="text-2xl font-semibold">
+            {selectedTeam 
+              ? `Reclamos de ${teams.find(t => t.id === selectedTeam)?.name}` 
+              : "Selecciona una escudería para ver sus reclamos"
+            }
+          </h2>
+          {!selectedTeam ? (
+            <p className="text-sm text-muted-foreground">Selecciona una escudería arriba para ver y gestionar sus reclamos.</p>
+          ) : claims.filter(c => c.teamId === selectedTeam).length === 0 ? (
+            <p className="text-sm text-muted-foreground">Esta escudería aún no ha presentado reclamos.</p>
           ) : (
             <div className="space-y-3">
-              {claims.map(claim => (
+              {claims.filter(c => c.teamId === selectedTeam).map(claim => (
                 <Card key={claim.id} className="border">
                   <CardContent className="py-4 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge className="text-xs">#{claim.id}</Badge>
+                      <Badge className="text-xs bg-blue-100 text-blue-800">{claim.teamName}</Badge>
                       <Badge className={"text-xs " + statusColor(claim.status)}>{claim.status}</Badge>
                       <span className="text-xs text-muted-foreground">{new Date(claim.createdAt).toLocaleString()}</span>
                     </div>
@@ -215,6 +281,7 @@ export default function ReclamosPage() {
           )}
         </section>
       </main>
+      <FloatingChat />
     </div>
   )
 }

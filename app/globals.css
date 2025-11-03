@@ -39,6 +39,23 @@
   --sidebar-ring: oklch(0.65 0.25 25);
 }
 
+/* Clases adicionales para el sistema de publicaciones */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .dark {
   --background: oklch(0.08 0 0);
   --foreground: oklch(0.98 0 0);

@@ -9,9 +9,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { Header } from "@/components/header"
+import { FloatingChat } from "@/components/floating-chat"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
-import { ArrowLeft, Trash2, Edit3, Plus, UserPlus, Upload, FileText, Users, Trophy, Database } from "lucide-react"
+import { ArrowLeft, Trash2, Edit3, Plus, UserPlus, Upload, FileText, Users, Trophy, Database, Wrench, Share2, Play, Check, AlertTriangle, Ban } from "lucide-react"
+import { getAllTeams, initializeDefaultTeams, type F1Team } from "@/lib/default-teams"
+import { getTeamIdFromName } from "@/lib/default-drivers"
+import { sendReclamoStatusChangeMessage, getAllTeamUsers, sendInspectionScheduledMessage, sendInspectionProgressMessage, sendInspectionResultMessage  } from "@/lib/messaging-utils"
 
 export default function AdminPage() {
   const { user, getAllUsers, updateUser, deleteUser, createUser } = useAuth()
@@ -56,6 +60,43 @@ export default function AdminPage() {
   const [drivers, setDrivers] = useState<any[]>([])
   const [fiaData, setFiaData] = useState<any[]>([])
 
+  // Inspecciones (controles técnicos y de neumáticos)
+  type InspectionStatus = "programado" | "en_progreso" | "completado" | "observacion" | "sancion"
+  type InspectionType = "neumaticos" | "tecnica"
+  interface Inspection {
+    id: string
+    type: InspectionType
+    eventId?: string
+    eventName: string
+    teamId: string
+    teamName: string
+    teamUserId: string // usuario receptor de notificaciones
+    scheduledAt: string
+    performedAt?: string
+    inspector: string
+    status: InspectionStatus
+    parameters?: Record<string, any>
+    resultsSummary?: string
+    sharedWithTeam?: boolean
+    attachments?: string[]
+    createdAt: string
+    updatedAt: string
+  }
+  const INSPECTIONS_KEY = "f1_fia_inspections"
+  const [inspections, setInspections] = useState<Inspection[]>([])
+  const [showInspectionForm, setShowInspectionForm] = useState(false)
+  const [inspectionType, setInspectionType] = useState<InspectionType>("neumaticos")
+  const [inspectionEventId, setInspectionEventId] = useState("")
+  const [inspectionEventName, setInspectionEventName] = useState("")
+  const [inspectionTeamId, setInspectionTeamId] = useState("")
+  const [inspectionTeamUserId, setInspectionTeamUserId] = useState("")
+  const [inspectionDatetime, setInspectionDatetime] = useState("")
+  const [inspectionInspector, setInspectionInspector] = useState("")
+  const [inspectionParams, setInspectionParams] = useState<Record<string, any>>({})
+  const [inspectionResultDraft, setInspectionResultDraft] = useState("")
+  const [inspectionFilter, setInspectionFilter] = useState<"activos" | "todos">("activos")
+  const [inspectionTypeFilter, setInspectionTypeFilter] = useState<"todos" | InspectionType>("todos")
+
   // Estados para formularios de eventos
   const [eventName, setEventName] = useState("")
   const [eventDate, setEventDate] = useState("")
@@ -67,6 +108,7 @@ export default function AdminPage() {
   const [teamName, setTeamName] = useState("")
   const [teamCountry, setTeamCountry] = useState("")
   const [teamPrincipal, setTeamPrincipal] = useState("")
+  const [teamImageUrl, setTeamImageUrl] = useState("")
 
   // Estados para formularios de pilotos
   const [driverName, setDriverName] = useState("")
@@ -74,6 +116,7 @@ export default function AdminPage() {
   const [driverNationality, setDriverNationality] = useState("")
   const [driverNumber, setDriverNumber] = useState("")
   const [driverImage, setDriverImage] = useState("")
+  const [driverRoleInput, setDriverRoleInput] = useState<"titular" | "suplente" | "reserva">("titular")
 
   // Estados para formularios de FIA
   const [fiaTitle, setFiaTitle] = useState("")
@@ -90,6 +133,7 @@ export default function AdminPage() {
     id: string
     teamId: string
     teamName: string
+    userId: string // ID del usuario que creó el reclamo
     type: string
     reference?: string
     event?: string
@@ -105,28 +149,49 @@ export default function AdminPage() {
   const [showOnlyPending, setShowOnlyPending] = useState(true)
 
   useEffect(() => {
+    // Debug: verificar el estado del usuario
+    console.log("Admin page - User:", user)
+    console.log("Admin page - User role:", user?.user_role)
+    
     if (!user) {
+      console.log("No user found, redirecting to login")
       router.push("/login")
       return
     }
 
     if (user.user_role !== "administrador") {
+      console.log("User is not admin, redirecting to home")
       router.push("/")
       return
     }
 
+    console.log("User is admin, loading data")
     setUsers(getAllUsers())
+    
+    // Inicializar escuderías por defecto
+    initializeDefaultTeams()
     
     // Cargar datos manuales desde localStorage
     const storedEvents = localStorage.getItem('f1_events_manual')
-    const storedTeams = localStorage.getItem('f1_teams_manual')
     const storedDrivers = localStorage.getItem('f1_drivers_manual')
     const storedFiaData = localStorage.getItem('f1_fia_manual')
     
+    // Obtener todas las escuderías (por defecto + manuales)
+    const allTeams = getAllTeams()
+    
     if (storedEvents) setEvents(JSON.parse(storedEvents))
-    if (storedTeams) setTeams(JSON.parse(storedTeams))
+    setTeams(allTeams) // Usar todas las escuderías
     if (storedDrivers) setDrivers(JSON.parse(storedDrivers))
     if (storedFiaData) setFiaData(JSON.parse(storedFiaData))
+
+    // Cargar inspecciones
+    const storedInspections = localStorage.getItem(INSPECTIONS_KEY)
+    if (storedInspections) {
+      try {
+        const parsed: Inspection[] = JSON.parse(storedInspections)
+        setInspections(parsed.sort((a,b)=> (b.createdAt > a.createdAt ? 1 : -1)))
+      } catch {}
+    }
     
     // Cargar las fechas de última actualización desde localStorage
     const teamsData = localStorage.getItem('f1_teams_data')
@@ -278,18 +343,28 @@ export default function AdminPage() {
       country: teamCountry.trim(),
       principal: teamPrincipal.trim(),
       date: teamDate,
-      created: new Date().toLocaleString()
+      created: new Date().toLocaleString(),
+      imageUrl: teamImageUrl.trim() || undefined
     }
 
-    const updatedTeams = [...teams, newTeam]
-    setTeams(updatedTeams)
-    localStorage.setItem('f1_teams_manual', JSON.stringify(updatedTeams))
+    // Solo agregar a las escuderías manuales, no a todas
+    const storedManualTeams = localStorage.getItem('f1_teams_manual')
+    const manualTeams = storedManualTeams ? JSON.parse(storedManualTeams) : []
+    const updatedManualTeams = [...manualTeams, newTeam]
+    
+    // Actualizar localStorage solo con escuderías manuales
+    localStorage.setItem('f1_teams_manual', JSON.stringify(updatedManualTeams))
+    
+    // Actualizar estado con todas las escuderías
+    const allTeams = getAllTeams()
+    setTeams(allTeams)
     
     // Limpiar formulario
     setTeamName("")
     setTeamCountry("")
     setTeamPrincipal("")
     setTeamDate("")
+    setTeamImageUrl("")
     setShowTeamForm(false)
     
     alert("Escudería creada exitosamente")
@@ -302,28 +377,44 @@ export default function AdminPage() {
       return
     }
 
+    // Buscar teamId usando la función de mapeo
+    const teamId = getTeamIdFromName(driverTeam.trim())
+
     const newDriver = {
       id: Date.now().toString(),
       name: driverName.trim(),
+      number: String(driverNumber),
       team: driverTeam.trim(),
+      teamId,
       nationality: driverNationality.trim(),
-      number: parseInt(driverNumber),
-      image: driverImage || "/placeholder-user.jpg",
-      created: new Date().toLocaleString()
+      country: '',
+      image: driverImage || '/placeholder-user.jpg',
+      points: 0,
+      status: driverRoleInput,
+      role: undefined,
+      biography: undefined,
+      achievements: undefined,
+      socialMedia: undefined,
+      created: new Date().toISOString(),
+      lastUpdated: new Date().toISOString()
     }
 
     const updatedDrivers = [...drivers, newDriver]
     setDrivers(updatedDrivers)
     localStorage.setItem('f1_drivers_manual', JSON.stringify(updatedDrivers))
-    
+
     // Limpiar formulario
     setDriverName("")
     setDriverTeam("")
     setDriverNationality("")
     setDriverNumber("")
     setDriverImage("")
+    setDriverRoleInput("titular")
     setShowDriverForm(false)
-    
+
+    // Disparar evento para que otras partes (drivers-section, escuderia) recarguen
+    try { window.dispatchEvent(new Event('f1-drivers-updated')) } catch {}
+
     alert("Piloto creado exitosamente")
   }
 
@@ -367,9 +458,17 @@ export default function AdminPage() {
 
   const handleDeleteTeam = (id: string) => {
     if (!confirm("¿Eliminar esta escudería?")) return
-    const updatedTeams = teams.filter(t => t.id !== id)
-    setTeams(updatedTeams)
-    localStorage.setItem('f1_teams_manual', JSON.stringify(updatedTeams))
+    
+    // Solo eliminar de las escuderías manuales
+    const storedManualTeams = localStorage.getItem('f1_teams_manual')
+    const manualTeams = storedManualTeams ? JSON.parse(storedManualTeams) : []
+    const updatedManualTeams = manualTeams.filter((t: any) => t.id !== id)
+    
+    localStorage.setItem('f1_teams_manual', JSON.stringify(updatedManualTeams))
+    
+    // Actualizar estado con todas las escuderías
+    const allTeams = getAllTeams()
+    setTeams(allTeams)
   }
 
   const handleDeleteDriver = (id: string) => {
@@ -515,16 +614,63 @@ export default function AdminPage() {
   const updateClaimStatus = (id: string, status: ClaimStatus) => {
     const stored = localStorage.getItem(CLAIMS_KEY)
     const all: FiaClaim[] = stored ? JSON.parse(stored) : []
+    const claim = all.find(c => c.id === id)
+    
+    if (!claim || !user) return
+    
     const now = new Date().toISOString()
-    const updated = all.map(c => (c.id === id ? { ...c, status, updatedAt: now } : c))
+    const updatedClaim = { ...claim, status, updatedAt: now }
+    const updated = all.map(c => (c.id === id ? updatedClaim : c))
+    
     localStorage.setItem(CLAIMS_KEY, JSON.stringify(updated))
     setClaims(updated.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1)))
+    
+    // Enviar mensaje automático a la escudería sobre el cambio de estado
+    console.log("Actualizando estado de reclamo:", {
+      claimId: id,
+      newStatus: status,
+      claim: updatedClaim,
+      admin: user.name
+    })
+    
+    sendReclamoStatusChangeMessage(updatedClaim, status, user)
+    
     try { window.dispatchEvent(new Event("f1-fia-claims-updated")) } catch {}
   }
 
   const pendingCount = claims.filter(c => c.status === "pendiente").length
+  const activeInspectionsCount = inspections.filter(i => i.status === "programado" || i.status === "en_progreso").length
 
-  if (!user) return null
+  // Si no hay usuario, mostrar pantalla de carga
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p>Verificando autenticación...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Si no es administrador, mostrar acceso denegado
+  if (user.user_role !== "administrador") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p>Acceso denegado</p>
+          <p className="text-sm text-muted-foreground">
+            Su rol actual: {user.user_role} - Necesita rol: "administrador"
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Usuario: {user.name} ({user.email})
+          </p>
+          <Button onClick={() => router.push("/")}>
+            Volver al Inicio
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -644,6 +790,292 @@ export default function AdminPage() {
               </div>
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <Wrench className="h-5 w-5" />
+                Controles Técnicos y Neumáticos
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Badge className="text-xs">{activeInspectionsCount} activos</Badge>
+                <Button size="sm" onClick={() => setShowInspectionForm(!showInspectionForm)}>
+                  <Plus className="h-4 w-4 mr-2" /> Programar Control
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Formulario nueva inspección */}
+              {showInspectionForm && (
+                <div className="border rounded-lg p-4 bg-muted/50 space-y-3">
+                  <h4 className="font-semibold">Nueva Inspección</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <Label>Tipo</Label>
+                      <select value={inspectionType} onChange={(e)=>setInspectionType(e.target.value as InspectionType)} className="w-full border rounded-md px-3 py-2 text-sm bg-background">
+                        <option value="neumaticos">Neumáticos</option>
+                        <option value="tecnica">Técnica</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label>Evento</Label>
+                      <select
+                        value={inspectionEventId}
+                        onChange={(e)=>{
+                          const id = e.target.value
+                          setInspectionEventId(id)
+                          const ev = events.find(ev=>ev.id === id)
+                          setInspectionEventName(ev ? ev.name : "")
+                        }}
+                        className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                      >
+                        <option value="">Seleccionar evento</option>
+                        {events.map(ev => (
+                          <option key={ev.id} value={ev.id}>{ev.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label>Escudería</Label>
+                      <select
+                        value={inspectionTeamId}
+                        onChange={(e)=>setInspectionTeamId(e.target.value)}
+                        className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                      >
+                        <option value="">Seleccionar escudería</option>
+                        {teams.map(t => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label>Usuario de la escudería (destinatario)</Label>
+                      <select
+                        value={inspectionTeamUserId}
+                        onChange={(e)=>setInspectionTeamUserId(e.target.value)}
+                        className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                      >
+                        <option value="">Seleccionar usuario</option>
+                        {getAllTeamUsers().map(u => (
+                          <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label>Fecha y hora programada</Label>
+                      <Input type="datetime-local" value={inspectionDatetime} onChange={(e)=>setInspectionDatetime(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Inspector</Label>
+                      <Input value={inspectionInspector} onChange={(e)=>setInspectionInspector(e.target.value)} placeholder="Nombre del inspector" />
+                    </div>
+                  </div>
+
+                  {/* Parámetros según tipo */}
+                  {inspectionType === "neumaticos" ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <Label>Compuesto</Label>
+                        <select className="w-full border rounded-md px-3 py-2 text-sm bg-background" value={inspectionParams.compound || ""} onChange={(e)=>setInspectionParams(p=>({...p, compound: e.target.value}))}>
+                          <option value="">Seleccionar</option>
+                          {['dry','inter','wet'].map(c=> <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <Label>Juegos sellados</Label>
+                        <Input type="number" value={inspectionParams.setsSealed ?? ''} onChange={(e)=>setInspectionParams(p=>({...p, setsSealed: Number(e.target.value)}))} />
+                      </div>
+                      <div>
+                        <Label>Juegos usados</Label>
+                        <Input type="number" value={inspectionParams.setsUsed ?? ''} onChange={(e)=>setInspectionParams(p=>({...p, setsUsed: Number(e.target.value)}))} />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" checked={!!inspectionParams.pressuresOk} onChange={(e)=>setInspectionParams(p=>({...p, pressuresOk: e.target.checked}))} />
+                        <Label>Presiones OK</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" checked={!!inspectionParams.tempsOk} onChange={(e)=>setInspectionParams(p=>({...p, tempsOk: e.target.checked}))} />
+                        <Label>Temperaturas OK</Label>
+                      </div>
+                      <div className="md:col-span-3">
+                        <Label>Comentarios</Label>
+                        <Input value={inspectionParams.comments || ""} onChange={(e)=>setInspectionParams(p=>({...p, comments: e.target.value}))} placeholder="Notas del control" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      
+                      <div>
+                        <Label>Peso (kg)</Label>
+                        <Input type="number" value={inspectionParams.weight ?? ''} onChange={(e)=>setInspectionParams(p=>({...p, weight: Number(e.target.value)}))} />
+                      </div>
+                  
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" checked={!!inspectionParams.wingsLegal} onChange={(e)=>setInspectionParams(p=>({...p, wingsLegal: e.target.checked}))} />
+                        <Label>Alerones legales</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" checked={!!inspectionParams.drsOk} onChange={(e)=>setInspectionParams(p=>({...p, drsOk: e.target.checked}))} />
+                        <Label>DRS OK</Label>
+                      </div>
+                      <div className="md:col-span-3">
+                        <Label>Comentarios</Label>
+                        <Input value={inspectionParams.comments || ""} onChange={(e)=>setInspectionParams(p=>({...p, comments: e.target.value}))} placeholder="Observaciones técnicas" />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-2">
+                    <Button size="sm" onClick={() => {
+                      if (!inspectionType || !inspectionTeamId || !inspectionTeamUserId || !inspectionDatetime) {
+                        alert("Completa tipo, escudería, usuario y fecha/hora")
+                        return
+                      }
+                      const team = teams.find(t=>t.id===inspectionTeamId)
+                      const eventName = inspectionEventName || (events.find(ev=>ev.id===inspectionEventId)?.name ?? "")
+                      const nowIso = new Date().toISOString()
+                      const newI: Inspection = {
+                        id: Date.now().toString(),
+                        type: inspectionType,
+                        eventId: inspectionEventId || undefined,
+                        eventName: eventName,
+                        teamId: inspectionTeamId,
+                        teamName: team?.name || inspectionTeamId,
+                        teamUserId: inspectionTeamUserId,
+                        scheduledAt: inspectionDatetime,
+                        inspector: inspectionInspector || (user?.name || "FIA"),
+                        status: "programado",
+                        parameters: inspectionParams,
+                        createdAt: nowIso,
+                        updatedAt: nowIso
+                      }
+                      const updated = [newI, ...inspections]
+                      setInspections(updated)
+                      localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(updated))
+                      // Notificar a escudería
+                      if (user) {
+                        sendInspectionScheduledMessage(newI as any, user as any, newI.teamUserId)
+                      }
+                      // limpiar
+                      setShowInspectionForm(false)
+                      setInspectionParams({})
+                      setInspectionInspector("")
+                      setInspectionDatetime("")
+                      setInspectionEventId("")
+                      setInspectionEventName("")
+                      setInspectionTeamId("")
+                      setInspectionTeamUserId("")
+                      toast({ title: "Control programado", description: `${newI.teamName} - ${newI.eventName || "General"}` })
+                    }}>Programar control</Button>
+                    <Button size="sm" variant="outline" onClick={()=>setShowInspectionForm(false)}>Cancelar</Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Filtros */}
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="text-sm flex items-center gap-2">
+                  <input type="radio" checked={inspectionFilter === "activos"} onChange={()=>setInspectionFilter("activos")} /> Activos
+                </label>
+                <label className="text-sm flex items-center gap-2">
+                  <input type="radio" checked={inspectionFilter === "todos"} onChange={()=>setInspectionFilter("todos")} /> Todos
+                </label>
+                <span className="mx-2 text-muted-foreground">|</span>
+                <select value={inspectionTypeFilter} onChange={(e)=>setInspectionTypeFilter(e.target.value as any)} className="border rounded px-2 py-1 text-sm">
+                  <option value="todos">Todos los tipos</option>
+                  <option value="neumaticos">Neumáticos</option>
+                  <option value="tecnica">Técnica</option>
+                </select>
+              </div>
+
+              {/* Lista */}
+              <div className="space-y-3 max-h-72 overflow-y-auto">
+                {inspections
+                  .filter(i => inspectionFilter === "todos" ? true : (i.status === "programado" || i.status === "en_progreso"))
+                  .filter(i => inspectionTypeFilter === "todos" ? true : i.type === inspectionTypeFilter)
+                  .map(i => (
+                    <div key={i.id} className="p-3 border rounded-md">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge className="text-xs">#{i.id}</Badge>
+                          <Badge className="text-xs">{i.type === "neumaticos" ? "Neumáticos" : "Técnica"}</Badge>
+                          <span className="text-sm font-medium">{i.teamName}</span>
+                          {i.eventName && <span className="text-xs text-muted-foreground">{i.eventName}</span>}
+                          <span className="text-xs text-muted-foreground">Prog: {i.scheduledAt ? new Date(i.scheduledAt).toLocaleString() : "-"}</span>
+                        </div>
+                        <Badge className="text-xs">{i.status.replace("_"," ")}</Badge>
+                      </div>
+                      {i.resultsSummary && (
+                        <div className="mt-1 text-sm whitespace-pre-wrap">{i.resultsSummary}</div>
+                      )}
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {i.status === "programado" && (
+                          <Button size="sm" variant="secondary" onClick={()=>{
+                            const updated = inspections.map(x => x.id===i.id ? ({...x, status: "en_progreso" as InspectionStatus, updatedAt: new Date().toISOString()}) : x)
+                            setInspections(updated)
+                            localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(updated))
+                            if (user) sendInspectionProgressMessage(i as any, user as any, i.teamUserId)
+                          }}>
+                            <Play className="h-3 w-3 mr-1"/> Iniciar
+                          </Button>
+                        )}
+                        {(i.status === "programado" || i.status === "en_progreso") && (
+                          <Button size="sm" onClick={()=>{
+                            const res = prompt("Resumen de resultados")
+                            const now = new Date().toISOString()
+                            const updated = inspections.map(x => x.id===i.id ? ({...x, status: "completado" as InspectionStatus, resultsSummary: res || x.resultsSummary, performedAt: now, updatedAt: now}) : x)
+                            setInspections(updated)
+                            localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(updated))
+                            if (user) sendInspectionResultMessage({...i, resultsSummary: res, status: "completado", performedAt: now} as any, user as any, i.teamUserId)
+                          }}>
+                            <Check className="h-3 w-3 mr-1"/> Completar
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" onClick={()=>{
+                          const detail = prompt("Detalle de observación")
+                          const now = new Date().toISOString()
+                          const updated = inspections.map(x => x.id===i.id ? ({...x, status: "observacion" as InspectionStatus, resultsSummary: detail || x.resultsSummary, performedAt: now, updatedAt: now}) : x)
+                          setInspections(updated)
+                          localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(updated))
+                          if (user) sendInspectionResultMessage({...i, resultsSummary: detail, status: "observacion", performedAt: now} as any, user as any, i.teamUserId)
+                        }}>
+                          <AlertTriangle className="h-3 w-3 mr-1"/> Observación
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={()=>{
+                          const detail = prompt("Detalle de sanción aplicada")
+                          const now = new Date().toISOString()
+                          const updated = inspections.map(x => x.id===i.id ? ({...x, status: "sancion" as InspectionStatus, resultsSummary: detail || x.resultsSummary, performedAt: now, updatedAt: now}) : x)
+                          setInspections(updated)
+                          localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(updated))
+                          if (user) sendInspectionResultMessage({...i, resultsSummary: detail, status: "sancion", performedAt: now} as any, user as any, i.teamUserId)
+                        }}>
+                          <Ban className="h-3 w-3 mr-1"/> Sanción
+                        </Button>
+                        <Button size="sm" variant={i.sharedWithTeam ? "secondary" : "outline"} onClick={()=>{
+                          const updated = inspections.map(x => x.id===i.id ? ({...x, sharedWithTeam: !x.sharedWithTeam, updatedAt: new Date().toISOString()}) : x)
+                          setInspections(updated)
+                          localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(updated))
+                          if (!i.sharedWithTeam && user) {
+                            sendInspectionResultMessage(i as any, user as any, i.teamUserId)
+                            toast({ title: "Resultados compartidos", description: `${i.teamName}` })
+                          }
+                        }}>
+                          <Share2 className="h-3 w-3 mr-1"/> {i.sharedWithTeam ? "Compartido" : "Compartir"}
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={()=>{
+                          if (!confirm("¿Eliminar control?")) return
+                          const updated = inspections.filter(x => x.id !== i.id)
+                          setInspections(updated)
+                          localStorage.setItem(INSPECTIONS_KEY, JSON.stringify(updated))
+                        }}>
+                          <Trash2 className="h-3 w-3"/>
+                        </Button>
+                      </div>
+                    </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
 
           {/* Sección de gestión manual de información */}
           {/* Gestión de Reclamos */}
@@ -996,6 +1428,19 @@ export default function AdminPage() {
                         </select>
                       </div>
                       <div>
+                        <Label htmlFor="driverRole">Rol</Label>
+                        <select
+                          id="driverRole"
+                          value={driverRoleInput}
+                          onChange={(e) => setDriverRoleInput(e.target.value as any)}
+                          className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                        >
+                          <option value="titular">Titular</option>
+                          <option value="suplente">Suplente</option>
+                          <option value="reserva">Reserva</option>
+                        </select>
+                      </div>
+                      <div>
                         <Label htmlFor="driverNumber">Número</Label>
                         <Input
                           id="driverNumber"
@@ -1178,6 +1623,10 @@ export default function AdminPage() {
                   <div className="text-2xl font-bold text-primary">{fiaData.length}</div>
                   <p className="text-sm text-muted-foreground">Datos FIA</p>
                 </div>
+                <div className="p-4 border rounded-lg text-center md:col-span-4 lg:col-span-1">
+                  <div className="text-2xl font-bold text-primary">{inspections.length}</div>
+                  <p className="text-sm text-muted-foreground">Controles/Inspecciones</p>
+                </div>
               </div>
               
               {(events.length > 0 || teams.length > 0 || drivers.length > 0 || fiaData.length > 0) && (
@@ -1191,6 +1640,7 @@ export default function AdminPage() {
           </Card>
         </div>
       </div>
+      <FloatingChat />
     </div>
   )
 }

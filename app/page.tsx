@@ -7,6 +7,8 @@ import { StandingsSection } from "@/components/standings-section"
 import { MultimediaSection } from "@/components/multimedia-section"
 import { FloatingChat } from "@/components/floating-chat"
 import { FiaSection } from "@/components/fia-section"
+import { TeamPostsSection } from "@/components/team-posts-section"
+import { InspectionsSection } from "@/components/inspections-section"
 
 export default function Home() {
   return (
@@ -16,9 +18,11 @@ export default function Home() {
         <CalendarSection />
         <DriversSection />
         <TeamsSection />
+        <TeamPostsSection />
         <StandingsSection />
         <PenaltiesSection />
         <FiaSection />
+        <InspectionsSection />
         <MultimediaSection />
         <FloatingChat />
       </main>

@@ -21,6 +21,8 @@ interface Message {
   message: string
   timestamp: number
   read: boolean
+  type?: "reclamo" | "normal"
+  reclamoId?: string
 }
 
 export function FloatingChat() {
@@ -43,6 +45,19 @@ export function FloatingChat() {
     }
 
     loadMessages()
+
+    // Escuchar nuevos mensajes automáticos
+    const handleNewMessage = () => {
+      loadMessages()
+    }
+
+    window.addEventListener("f1-new-message", handleNewMessage)
+    window.addEventListener("f1-messages-updated", handleNewMessage)
+
+    return () => {
+      window.removeEventListener("f1-new-message", handleNewMessage)
+      window.removeEventListener("f1-messages-updated", handleNewMessage)
+    }
   }, [])
 
   // Auto-scroll al final cuando hay nuevos mensajes
@@ -88,12 +103,13 @@ export function FloatingChat() {
     if (!messageText.trim() || !currentUser || !selectedRecipient) return
 
     const newMessage: Message = {
-      id: Date.now().toString(),
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       fromUserId: currentUser.id,
       toUserId: selectedRecipient,
       message: messageText.trim(),
       timestamp: Date.now(),
       read: false,
+      type: "normal"
     }
 
     const updatedMessages = [...messages, newMessage]
@@ -208,14 +224,30 @@ export function FloatingChat() {
                   ) : (
                     getConversationMessages().map((msg) => {
                       const isFromMe = msg.fromUserId === currentUser.id
+                      const isReclamoMessage = msg.type === "reclamo"
+                      
                       return (
                         <div key={msg.id} className={`flex ${isFromMe ? "justify-end" : "justify-start"}`}>
                           <div
-                            className={`max-w-[75%] rounded-lg px-3 py-2 ${isFromMe ? "bg-red-600 text-white" : "bg-muted text-foreground"
-                              }`}
+                            className={`max-w-[75%] rounded-lg px-3 py-2 ${
+                              isReclamoMessage 
+                                ? (isFromMe ? "bg-orange-600 text-white border-l-4 border-orange-800" : "bg-blue-100 text-blue-900 border-l-4 border-blue-600")
+                                : (isFromMe ? "bg-red-600 text-white" : "bg-muted text-foreground")
+                            }`}
                           >
-                            <p className="text-sm break-words">{msg.message}</p>
-                            <span className={`text-xs ${isFromMe ? "text-red-100" : "text-muted-foreground"}`}>
+                            {isReclamoMessage && (
+                              <div className="flex items-center gap-1 mb-1">
+                                <span className="text-xs font-semibold">
+                                  🚨 {isFromMe ? "RECLAMO ENVIADO" : "ACTUALIZACIÓN DE RECLAMO"}
+                                </span>
+                              </div>
+                            )}
+                            <p className="text-sm break-words whitespace-pre-wrap">{msg.message}</p>
+                            <span className={`text-xs ${
+                              isReclamoMessage 
+                                ? (isFromMe ? "text-orange-100" : "text-blue-700")
+                                : (isFromMe ? "text-red-100" : "text-muted-foreground")
+                            }`}>
                               {formatTime(msg.timestamp)}
                             </span>
                           </div>
