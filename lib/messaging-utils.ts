@@ -16,6 +16,19 @@ interface Message {
   reclamoId?: string
 }
 
+// Obtener todos los usuarios con rol "escuderia"
+export function getAllTeamUsers(): User[] {
+  try {
+    const storedUsers = localStorage.getItem("f1_users")
+    if (!storedUsers) return []
+
+    const users: User[] = JSON.parse(storedUsers)
+    return users.filter(user => user.user_role === "escuderia")
+  } catch {
+    return []
+  }
+}
+
 interface FiaClaim {
   id: string
   teamId: string
@@ -159,6 +172,49 @@ function sendMessage(fromUserId: string, toUserId: string, messageText: string, 
   } catch (error) {
     console.error("Error sending message:", error)
   }
+}
+
+// Notificaciones relacionadas a controles/inspecciones técnicas y de neumáticos
+// inspection es de tipo any para evitar dependencias cruzadas; debe incluir al menos:
+// { id, type, teamName, eventName, scheduledAt, performedAt?, status, resultsSummary?, parameters? }
+export function sendInspectionScheduledMessage(inspection: any, adminUser: User, toUserId: string) {
+  const title = inspection.type === "neumaticos" ? "Control de Neumáticos" : "Prueba Técnica"
+  const messageText = `🛠️ ${title} PROGRAMADO
+
+Escudería: ${inspection.teamName}
+Evento: ${inspection.eventName || "-"}
+Fecha programada: ${inspection.scheduledAt ? new Date(inspection.scheduledAt).toLocaleString("es-ES") : "-"}
+Inspector: ${inspection.inspector || "FIA"}
+Estado: PROGRAMADO`
+
+  sendMessage(adminUser.id, toUserId, messageText, "normal")
+}
+
+export function sendInspectionProgressMessage(inspection: any, adminUser: User, toUserId: string) {
+  const title = inspection.type === "neumaticos" ? "Control de Neumáticos" : "Prueba Técnica"
+  const messageText = `⏱️ ${title} EN PROGRESO
+
+Escudería: ${inspection.teamName}
+Evento: ${inspection.eventName || "-"}
+Iniciado por: ${inspection.inspector || "FIA"}
+Estado: EN PROGRESO`
+
+  sendMessage(adminUser.id, toUserId, messageText, "normal")
+}
+
+export function sendInspectionResultMessage(inspection: any, adminUser: User, toUserId: string) {
+  const title = inspection.type === "neumaticos" ? "Control de Neumáticos" : "Prueba Técnica"
+  const statusLabel = (inspection.status || "").toString().toUpperCase()
+  const when = inspection.performedAt ? new Date(inspection.performedAt).toLocaleString("es-ES") : new Date().toLocaleString("es-ES")
+  const summary = inspection.resultsSummary ? `\n\nResumen:\n${inspection.resultsSummary}` : ""
+  const messageText = `📑 RESULTADO ${title}
+
+Escudería: ${inspection.teamName}
+Evento: ${inspection.eventName || "-"}
+Fecha: ${when}
+Estado: ${statusLabel}${summary}`
+
+  sendMessage(adminUser.id, toUserId, messageText, "normal")
 }
 
 // Obtener mensajes no leídos para un usuario
